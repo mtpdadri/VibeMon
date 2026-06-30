@@ -3,12 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VibeMon — Vibration Monitoring System</title>
+<title>VibeMon — Field Engineer App</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
+<script>
+/* ===== localStorage DISABLED =====
+   All persistence to browser localStorage has been removed per request.
+   We replace window.localStorage with an in-memory shim so existing calls
+   throughout the app keep working during the session but nothing is ever
+   written to disk. Effect: theme, saved GSheet URL, cached schedule, and
+   saved login are NOT remembered across page reloads.                 */
+(function disableLocalStorage(){
+  var mem = Object.create(null);
+  var shim = {
+    getItem: function(k){ return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+    setItem: function(k, v){ mem[String(k)] = String(v); },
+    removeItem: function(k){ delete mem[String(k)]; },
+    clear: function(){ mem = Object.create(null); },
+    key: function(i){ return Object.keys(mem)[i] || null; },
+    get length(){ return Object.keys(mem).length; }
+  };
+  try { Object.defineProperty(window, 'localStorage', { configurable: true, get: function(){ return shim; } }); } catch(e){}
+  try { Object.defineProperty(window, 'sessionStorage', { configurable: true, get: function(){ return shim; } }); } catch(e){}
+})();
+function toggleTheme() {
+  const root = document.documentElement;
+  if (root.classList.contains('theme-light')) {
+    root.classList.remove('theme-light');
+    localStorage.setItem('vibemon-theme', 'dark');
+  } else {
+    root.classList.add('theme-light');
+    localStorage.setItem('vibemon-theme', 'light');
+  }
+}
+(function initTheme() {
+  const theme = localStorage.getItem('vibemon-theme') || 'dark';
+  if (theme === 'light') {
+    document.documentElement.classList.add('theme-light');
+  } else {
+    document.documentElement.classList.remove('theme-light');
+  }
+})();
+</script>
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -219,8 +259,15 @@ pre{background:#1e1e2e;color:#cdd6f4;padding:10px 12px;border-radius:var(--radiu
 .role-editor{background:#DBEAFE;color:#1D4E8A;}
 .role-viewer{background:#F1F5F9;color:#475569;}
 /* Role visibility helpers */
-body.role-viewer .requires-editor{display:none !important;}
-body.role-viewer .requires-admin,body.role-editor .requires-admin{display:none !important;}
+.requires-editor{display:none !important;}
+body.role-editor .requires-editor, body.role-admin .requires-editor{display:inline-block !important;}
+body.role-editor button.requires-editor, body.role-admin button.requires-editor{display:inline-block !important;}
+body.role-editor div.requires-editor, body.role-admin div.requires-editor{display:block !important;}
+
+.requires-admin{display:none !important;}
+body.role-admin .requires-admin{display:inline-block !important;}
+body.role-admin button.requires-admin{display:inline-block !important;}
+body.role-admin div.requires-admin{display:block !important;}
 /* ADMIN PANEL */
 .admin-panel-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;}
 .admin-panel-modal.open{display:flex;}
@@ -443,6 +490,114 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
 .view-toggle button{border:none;background:none;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px}
 .view-toggle button.active{background:var(--blue);color:#fff}
 @media(max-width:600px){html[data-view="mobile"] .view-toggle{bottom:64px}}
+
+/* ── HIGH CONTRAST THEME SYSTEM ── */
+:root {
+  --bg-page: #0d1117;
+  --bg-card: #161b22;
+  --bg-card-header: #21262d;
+  --bg-input: #0d1117;
+  --border-color: #30363d;
+  --text-main: #f0f6fc;
+  --text-body: #c9d1d9;
+  --text-muted: #8b949e;
+  --accent-blue: #58a6ff;
+  --accent-green: #3fb950;
+  --accent-red: #f85149;
+  --accent-amber: #d29922;
+  --accent-orange: #f0883e;
+  --shadow: 0 8px 24px rgba(0,0,0,0.5);
+  --btn-bg: #21262d;
+  --btn-border: #30363d;
+  --btn-text: #c9d1d9;
+}
+
+:root.theme-light {
+  --bg-page: #f6f8fa;
+  --bg-card: #ffffff;
+  --bg-card-header: #f6f8fa;
+  --bg-input: #ffffff;
+  --border-color: #d0d7de;
+  --text-main: #24292f;
+  --text-body: #24292f;
+  --text-muted: #57606a;
+  --accent-blue: #0969da;
+  --accent-green: #1a7f37;
+  --accent-red: #cf222e;
+  --accent-amber: #9a6700;
+  --accent-orange: #bc4c00;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+  --btn-bg: #f6f8fa;
+  --btn-border: #d0d7de;
+  --btn-text: #24292f;
+}
+
+/* Page, Tab screens, and modals background */
+body, .screen, #tab-dashboard, #tab-exceptions, #tab-success, #tab-gsheet, .login-screen {
+  background: var(--bg-page) !important;
+  color: var(--text-body) !important;
+}
+
+/* Card components */
+.rcc-card, .login-box, .admin-panel-box, .edit-report-box, .savings-detail-modal > div, .kpi-detail-modal > div, .trend-modal > div, .filter-bar, .card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text-body) !important;
+}
+
+.rcc-card-head, .login-logo, .admin-panel-box > div:first-child, .edit-report-box > div:first-child, .card-head {
+  background: var(--bg-card-header) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.rcc-card-title, h1, h2, h3, h4, .dash-hero-title, .dash-section-title, .card-title {
+  color: var(--text-main) !important;
+}
+
+.rcc-card-sub, .row-lbl, .rank, .rcc-kpi-sub, .card-sub {
+  color: var(--text-muted) !important;
+}
+
+/* Inputs and select boxes */
+select, input[type="date"], input[type="url"], input[type="text"], input[type="password"], input[type="number"], textarea {
+  background: var(--bg-input) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* Buttons styling override */
+.btn {
+  background: var(--btn-bg) !important;
+  border: 1px solid var(--btn-border) !important;
+  color: var(--btn-text) !important;
+}
+.btn:hover {
+  background: var(--bg-card-header) !important;
+}
+.btn-primary, .btn-green {
+  background: var(--accent-blue) !important;
+  border-color: var(--accent-blue) !important;
+  color: #ffffff !important;
+}
+.btn-primary:hover, .btn-green:hover {
+  filter: brightness(0.9);
+}
+
+/* Theme Toggle Button custom style */
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 8px;
+  margin-left: 12px;
+  transition: transform 0.2s;
+}
+.theme-toggle-btn:hover {
+  transform: scale(1.1);
+}
 </style>
 <script type="module">
 /* html2app Flutter WebView detection — sets window._h2a_isApp and window._h2a_InAppBrowser.
@@ -476,13 +631,12 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
 
 
 <nav class="nav">
-  <div class="nav-brand">⚡ VibeMon <span>Vibration Monitoring System </span></div>
+  <div class="nav-brand">⚡ VibeMon <span>Field Engineer App</span></div>
   <div class="nav-tabs">
     <button class="nav-tab active requires-editor" onclick="showTab('entry')">✏️ Data Entry</button>
     <button class="nav-tab" onclick="showTab('history')">📋 History</button>
-    <button class="nav-tab" onclick="showTab('dashboard')">📊 Dashboard</button>
-    <button class="nav-tab" onclick="showTab('exceptions')">🚨 Exceptions</button>
-    <button class="nav-tab requires-admin" onclick="showTab('gsheet')">🔗 Google Sheets</button>
+    <button class="nav-tab requires-editor" onclick="showTab('daily')">📅 Daily Schedule</button>
+    <button class="nav-tab requires-editor" onclick="showTab('pending')">⏳ Pending Daily Schedule</button>
   </div>
   <div class="nav-user requires-editor">
     <span>Inspector:</span>
@@ -492,6 +646,7 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
     <span id="nav-username-label"></span>
     <span id="nav-role-badge"></span>
     <button class="nav-logout-btn requires-admin" id="nav-admin-btn" style="display:none" onclick="openAdminPanel()">⚙️ Users</button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">🌓 Theme</button>
     <button class="nav-login-btn" id="nav-login-btn" onclick="openLoginScreen()">🔐 Login</button>
     <button class="nav-logout-btn" id="nav-logout-btn" style="display:none" onclick="doLogout()">Logout</button>
   </div>
@@ -505,14 +660,11 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
   <button class="mobile-tab" id="mb-history" onclick="showTab('history')">
     <span class="tab-icon">📋</span>History
   </button>
-  <button class="mobile-tab" id="mb-dashboard" onclick="showTab('dashboard')">
-    <span class="tab-icon">📊</span>Dashboard
+  <button class="mobile-tab requires-editor" id="mb-daily" onclick="showTab('daily')">
+    <span class="tab-icon">📅</span>Daily
   </button>
-  <button class="mobile-tab" id="mb-exceptions" onclick="showTab('exceptions')">
-    <span class="tab-icon">🚨</span>Except
-  </button>
-  <button class="mobile-tab requires-admin" id="mb-gsheet" onclick="showTab('gsheet')">
-    <span class="tab-icon">🔗</span>Sheets
+  <button class="mobile-tab requires-editor" id="mb-pending" onclick="showTab('pending')">
+    <span class="tab-icon">⏳</span>Pending
   </button>
 </div>
 
@@ -536,6 +688,7 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
     </div>
   </div>
 </div>
+
 
 <!-- DATA ENTRY -->
 <div class="screen active" id="tab-entry">
@@ -573,7 +726,7 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
       </div>
       <div class="tbl-wrap">
         <table class="mobile-stack-table equipment-mobile-table">
-          <thead><tr><th>Unit</th><th>Area</th><th style="min-width:160px">Equipment Name</th><th>Pts</th><th>Freq</th><th>Schedule</th><th>Last Reading</th></tr></thead>
+          <thead><tr><th>Unit</th><th>Area</th><th style="min-width:160px">Equipment Name</th><th>Freq</th><th>Schedule</th><th>Last Reading</th></tr></thead>
           <tbody id="equip-select-body"></tbody>
         </table>
       </div>
@@ -592,6 +745,12 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
           <div class="fg" style="flex-direction:row;align-items:center;gap:6px">
             <label style="white-space:nowrap">Date</label>
             <input type="date" id="entry-date" style="width:140px">
+          </div>
+          <div class="fg" style="flex-direction:row;align-items:center;gap:6px">
+            <label style="white-space:nowrap">Resp. Dept <span style="font-weight:400;color:var(--hint)">(optional)</span></label>
+            <select id="entry-resp-dept" style="width:120px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;background:#fff">
+              <option value="">— None —</option>
+            </select>
           </div>
           <div id="s2-sched-badge"></div>
         </div>
@@ -714,561 +873,130 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
   </div>
 </div>
 
-<!-- DASHBOARD -->
-<div class="screen" id="tab-dashboard">
-  <div class="filter-bar">
-    <select id="d-unit" onchange="renderDashboard()"><option value="">All units</option></select>
-    <select id="d-area" onchange="renderDashboard()"><option value="">All areas</option></select>
-    <select id="d-user" onchange="renderDashboard()"><option value="">All users</option></select>
-    <input type="date" id="d-from" onchange="renderDashboard()">
-    <input type="date" id="d-to" onchange="renderDashboard()">
-    <select id="d-sev" onchange="renderDashboard()" style="border-left:3px solid var(--orange)">
-      <option value="">All Severity</option>
-      <option value="ALERT">🔶 ALERT</option>
-      <option value="ALARM">⚠️ ALARM</option>
-      <option value="NORMAL">✅ NORMAL</option>
-      <option value="CRITICAL">🚨 CRITICAL</option>
+<!-- DASHBOARD — Reliability Command Center -->
+<!-- ── DAILY SCHEDULE TAB ── -->
+<div class="screen" id="tab-daily">
+  <style>
+    .ds-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+    .ds-pill{padding:4px 10px;background:var(--blue-light);color:var(--blue-text);border-radius:999px;font-weight:600;font-size:12px}
+    .ds-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:var(--border);padding:4px;border-radius:8px}
+    .ds-cal .dow{font-size:10px;font-weight:700;text-align:center;color:var(--muted);padding:4px 2px;background:var(--surface)}
+    .ds-day{background:var(--surface);min-height:62px;padding:4px 6px;cursor:pointer;border-radius:4px;position:relative;font-size:11px;transition:.1s}
+    .ds-day:hover{background:var(--blue-light)}
+    .ds-day.empty{background:transparent;cursor:default;visibility:hidden}
+    .ds-day.sunday{background:#f9fafb;color:var(--hint);cursor:default}
+    .ds-day.today{outline:2px solid var(--blue);outline-offset:-2px}
+    .ds-day.selected{background:var(--blue);color:#fff}
+    .ds-day.done{background:var(--green-light)}
+    .ds-day.partial{background:var(--amber-light)}
+    .ds-day.pending{background:var(--red-light)}
+    .ds-day .dnum{font-weight:700;font-size:13px}
+    .ds-day .dwd{font-size:9px;opacity:.7;margin-top:2px}
+    .ds-day .dprog{position:absolute;bottom:3px;left:6px;right:6px;height:3px;background:rgba(0,0,0,.08);border-radius:2px;overflow:hidden}
+    .ds-day .dprog>i{display:block;height:100%;background:var(--green)}
+    .ds-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--muted);margin-top:8px}
+    .ds-legend span{display:inline-flex;align-items:center;gap:4px}
+    .ds-legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+    .ds-equip-tbl th,.ds-equip-tbl td{padding:6px 8px;font-size:12px}
+    .ds-equip-tbl tr.done td{background:var(--green-light)}
+    .grpsel{padding:5px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--surface)}
+  </style>
+  <div class="ds-head">
+    <div style="font-weight:700;font-size:16px;color:var(--blue-text)">📅 Daily Schedule</div>
+    <span class="ds-pill" id="ds-user-pill">—</span>
+    <div style="flex:1"></div>
+    <select id="ds-team-admin" class="grpsel requires-admin" onchange="dsSyncTeamSelect(this.value)" style="display:none">
+      <option value="auto">My team (auto)</option>
+      <option value="ALL">All Groups</option>
+      <option value="Precise">Precise Group</option>
+      <option value="CB">Chaitanya Bharthi Group</option>
+      <option value="CBA">Chaitanya Bharthi Group A</option>
     </select>
-    <button class="btn btn-primary filter-bar-full" onclick="renderDashboard()">🔄 Refresh</button>
-    <button class="btn" onclick="exportDashboardReport()">📥 Excel</button>
-    <button class="btn" onclick="exportDashboardPDF()">📄 PDF Report</button>
-    <button class="btn btn-wa requires-editor" onclick="openWASummaryModal('dashboard')">📲 WhatsApp</button>
+    <button class="btn btn-sm" onclick="dsPrevMonth()">◀</button>
+    <span id="ds-month-label" style="font-weight:700;min-width:140px;text-align:center;font-size:13px"></span>
+    <button class="btn btn-sm" onclick="dsNextMonth()">▶</button>
+    <button class="btn btn-sm" onclick="dsToday()">Today</button>
+    <button class="btn btn-sm" onclick="reloadScheduleNow()" title="Re-fetch VIBE_SCHEDULE from Google Sheet">🔄 Reload Schedule</button>
   </div>
-  <div class="kpi-grid" id="dash-kpis"></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px" id="dash-2col">
-    <div class="card">
-      <div class="card-head"><span class="card-title">Area-wise status</span></div>
-      <div class="card-body" id="dash-area"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-title">Critical / Alert equipment</span></div>
-      <div class="card-body" style="padding:0 14px" id="dash-critical"></div>
-    </div>
-  </div>
+  <div id="vs-diag" style="display:none;margin-bottom:8px;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;word-break:break-word"></div>
   <div class="card">
-    <div class="card-head"><span class="card-title">Daily reading count (last 30 days)</span></div>
-    <div class="card-body" id="dash-daily"></div>
+    <div class="card-body" style="padding:12px">
+      <div class="ds-cal" id="ds-cal"></div>
+      <div class="ds-legend">
+        <span><i style="background:var(--green-light)"></i>Completed</span>
+        <span><i style="background:var(--amber-light)"></i>Partial</span>
+        <span><i style="background:var(--red-light)"></i>Missed/Pending</span>
+        <span><i style="background:#fff;border:1px solid var(--border2)"></i>Upcoming</span>
+        <span><i style="background:#f9fafb"></i>Sunday (off)</span>
+      </div>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-head"><span class="card-title">Overdue / due equipment</span></div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Equipment</th><th>Unit</th><th>Area</th><th>Frequency</th><th>Last Reading</th><th>Status</th></tr></thead>
-        <tbody id="dash-overdue-body"></tbody>
-      </table>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head" style="background:#EFF6FF">
+      <span class="card-title" id="ds-sel-title" style="color:var(--blue-text)">Select a day</span>
+      <span id="ds-sel-meta" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+    <div class="card-body" style="padding:8px 12px">
+      <div id="ds-sel-empty" style="text-align:center;padding:18px;color:var(--muted);font-size:13px">Tap any day on the calendar to see scheduled equipment.</div>
+      <div class="tbl-wrap" id="ds-sel-wrap" style="display:none">
+        <table class="ds-equip-tbl"><thead><tr><th>#</th><th>Equipment</th><th>Unit</th><th>Area</th><th>Frequency</th><th>Loc</th><th>Status</th></tr></thead><tbody id="ds-sel-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head" style="background:#EFF6FF">
+      <span class="card-title" style="color:var(--blue-text)">📊 Total (All Groups)</span>
+      <span style="font-size:11px;color:var(--muted)">Completed this month</span>
+    </div>
+    <div class="card-body" style="padding:8px 12px">
+      <div id="ds-perf-total"></div>
+      <div id="ds-compare" class="requires-admin" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-weight:700;font-size:13px;color:var(--blue-text);margin-bottom:2px">📊 Team Comparison <span style="font-weight:400;color:var(--muted);font-size:11px">(admin view)</span></div>
+        <div id="ds-compare-sub" style="font-size:11px;color:var(--muted);margin-bottom:10px"></div>
+        <div id="ds-compare-bars" style="margin-bottom:16px"></div>
+        
+        <div style="font-weight:700;font-size:13px;color:var(--blue-text);margin-top:16px;margin-bottom:4px;border-top:1px dashed var(--border);padding-top:12px">📈 Historical Month-wise Performance Comparison</div>
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap">
+          <span>🔵 Precise Group</span>
+          <span>🟡 Chaitanya Bharthi</span>
+          <span>🟢 Chaitanya Bharthi-A</span>
+        </div>
+        <div id="ds-compare-monthwise"></div>
+      </div>
     </div>
   </div>
 </div>
 
-
-
-<!-- EXCEPTIONS -->
-<div class="screen" id="tab-exceptions">
-  <!-- KPI strip -->
-  <div class="kpi-grid" id="exc-kpis" style="margin-bottom:12px"></div>
-
-  <!-- Filter bar -->
-  <div class="filter-bar" id="exc-filter-bar">
-    <input type="date" id="exc-from" onchange="renderExceptions()">
-    <input type="date" id="exc-to"   onchange="renderExceptions()">
-    <select id="exc-unit" onchange="renderExceptions()"><option value="">All units</option></select>
-    <select id="exc-area" onchange="renderExceptions()"><option value="">All areas</option></select>
-    <select id="exc-equip" onchange="renderExceptions()"><option value="">All equipment</option></select>
-    <select id="exc-sev" onchange="renderExceptions()" style="border-left:3px solid var(--orange)">
-      <option value="">Alert &amp; Alarm &amp; Critical</option>
-      <option value="ALARM">⚠️ Alarm only</option>
-      <option value="ALERT">🔶 Alert only</option>
-      <option value="CRITICAL">🚨 Critical only</option>
+<!-- ── PENDING DAILY SCHEDULE TAB ── -->
+<div class="screen" id="tab-pending">
+  <div class="ds-head">
+    <div style="font-weight:700;font-size:16px;color:var(--blue-text)">⏳ Pending Daily Schedule</div>
+    <span class="ds-pill" id="dp-user-pill">—</span>
+    <div style="flex:1"></div>
+    <select id="dp-team-admin" class="grpsel requires-admin" onchange="dsSyncTeamSelect(this.value)" style="display:none">
+      <option value="auto">My team (auto)</option>
+      <option value="ALL">All Groups</option>
+      <option value="Precise">Precise Group</option>
+      <option value="CB">Chaitanya Bharthi Group</option>
+      <option value="CBA">Chaitanya Bharthi Group A</option>
     </select>
-    <select id="exc-point" onchange="renderExceptions()"><option value="">All points</option></select>
-    <select id="exc-user" onchange="renderExceptions()"><option value="">All users</option></select>
-    <input type="text" id="exc-search" placeholder="Search equipment..." oninput="renderExceptions()" style="flex:2;min-width:140px" class="filter-bar-full">
-    <button class="btn btn-primary filter-bar-full" onclick="renderExceptions()">🔍 Filter</button>
-    <button class="btn" onclick="resetExcFilters()">↺ Reset</button>
-    <button class="btn" onclick="exportExceptionsExcel()">📥 Excel</button>
-    <button class="btn" onclick="exportExceptionsPDF()">📄 PDF</button>
-    <button class="btn btn-wa requires-editor" onclick="openExcWA()">📲 WhatsApp</button>
+    <button class="btn btn-sm" onclick="dpRender()">🔄 Refresh</button>
+    <button class="btn btn-sm" onclick="dpExport()">📥 Excel</button>
   </div>
-
-  <!-- Results -->
-  <div id="exc-results"></div>
-</div>
-
-<!-- GOOGLE SHEETS -->
-<div class="screen" id="tab-gsheet">
-
-  <!-- MOBILE USAGE GUIDE — shown to admin only -->
-  <div class="card" style="border-left:4px solid var(--blue);background:#EFF6FF">
-    <div class="card-body" style="padding:12px 14px">
-      <div style="font-size:13px;font-weight:700;color:var(--blue-text);margin-bottom:6px">📱 Mobile Usage — Important</div>
-      <div style="font-size:12px;color:#1e3a5f;line-height:1.7">
-        <strong>Why data does not load when opening .html file directly on phone:</strong><br>
-        Chrome on Android blocks all network requests (fetch/CORS) when opening a local <code style="font-size:10px;background:#dbeafe;padding:1px 4px;border-radius:3px">file://</code> file — this prevents Google Sheet connection.<br><br>
-        <strong>✅ Correct way to use VibeMon on mobile:</strong><br>
-        1. Host this file on <strong>Google Drive</strong> → share as "Anyone with link" → open that link in Chrome.<br>
-        &nbsp;&nbsp;&nbsp;OR<br>
-        2. Host on <strong>GitHub Pages</strong> (free) → open the <code style="font-size:10px;background:#dbeafe;padding:1px 4px;border-radius:3px">https://</code> link on mobile.<br>
-        &nbsp;&nbsp;&nbsp;OR<br>
-        3. Run a simple local server: in the folder containing this file, run <code style="font-size:10px;background:#dbeafe;padding:1px 4px;border-radius:3px">python -m http.server 8080</code> and open <code style="font-size:10px;background:#dbeafe;padding:1px 4px;border-radius:3px">http://YOUR-PC-IP:8080</code> on phone (same WiFi).<br><br>
-        <strong>💡 Quickest option:</strong> Upload this .html to Google Drive → right-click → Get link → Anyone with link → share that link with all users.
-      </div>
-    </div>
-  </div>
-
+  <div id="dp-kpis" class="kpi-grid" style="margin-bottom:12px"></div>
   <div class="card">
-    <div class="card-head"><span class="card-title">🔗 Google Sheets — Live Connection</span>
-      <span style="font-size:11px;color:var(--muted)">All data saved directly to Google Sheet · No local storage</span>
+    <div class="card-head" style="background:#FEF3C7">
+      <span class="card-title" style="color:var(--amber)">Today + Backlog (current month)</span>
+      <span id="dp-meta" style="font-size:11px;color:var(--muted)"></span>
     </div>
-    <div class="card-body">
-
-      <!-- Step 1: URL Setup -->
-      <div class="gs-step" style="margin-bottom:12px">
-        <h3>Google Apps Script Web App URL</h3>
-        <div class="alert-box alert-suc" style="margin-bottom:10px">
-          ✅ <strong>Default Google Sheet is pre-configured.</strong> All users can login and save data immediately — no setup needed.<br>
-          <small style="opacity:.8">To use a different Google Sheet, paste a new URL below and click "💾 Save URL".</small>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <input type="url" id="gs-url" placeholder="Default URL is pre-configured..."
-            style="flex:1;min-width:280px;padding:8px 10px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius);background:#fff">
-          <button class="btn btn-green" onclick="saveGSUrl()">💾 Save URL</button>
-          <button class="btn btn-primary" onclick="testGS()">🔌 Test Connection</button>
-          <button class="btn" onclick="manualFetchGS().then(()=>renderHistory())">🔄 Sync &amp; Reload Data</button>
-        </div>
-        <div id="gs-result" style="margin-top:8px"></div>
+    <div class="card-body" style="padding:8px 12px">
+      <div id="dp-empty" style="display:none;text-align:center;padding:24px;color:var(--muted);font-size:13px">✅ Everything scheduled so far this month is completed.</div>
+      <div class="tbl-wrap" id="dp-wrap">
+        <table><thead><tr><th>WD</th><th>Date</th><th>Equipment</th><th>Unit</th><th>Area</th><th>Frequency</th><th>Loc</th><th>Days Overdue</th></tr></thead><tbody id="dp-body"></tbody></table>
       </div>
-
-      <!-- Step 2: Apps Script code -->
-      <div class="gs-step" style="margin-bottom:12px">
-        <h3>Step 2 — Apps Script Code</h3>
-        <p style="margin-bottom:8px">Open Google Sheet → Extensions → Apps Script → paste this code → Save → Deploy as Web App (Execute as Me, Access Anyone) → copy new URL → paste above.</p>
-        <button class="btn btn-sm btn-primary" style="margin-bottom:8px" onclick="copyScript();document.getElementById('gs-code').style.display='block'">📋 Copy Script to Clipboard</button>
-        <pre id="gs-code" style="display:none">// ================================================================
-// VibeMon Google Apps Script — v4.0 FINAL (Google Sheets Only DB)
-// Deploy: Extensions → Apps Script → Deploy → New Web App
-//   Execute as: Me | Who has access: Anyone
-// ================================================================
-// REQUIRED SHEETS:
-//   USERS            : Username | Password | Role | Name | Status
-//   Equipment Master : S.NO. | UNITS/STAGE | AREA | EQUIPMENTS NAME | KW | RPM | VIBRATION LIMITS | EQUIPMENT ROUTES | Frequency (in Days) | PARAMETERS
-//   RECOMMENDATIONS_MASTER : Category | Recommendation
-//   SETTINGS         : Key | Value
-//   ALL_READINGS     : Report_ID | Date | Username | Inspector | Unit | Area | Equipment | RPM | Frequency | Point | H Vel | V Vel | A Vel | Acc | H Dis | V Dis | A Dis | Severity | Recommendation | Remarks | Created_On | Updated_On
-// ================================================================
-
-var TZ = Session.getScriptTimeZone();
-
-function fmtDate(d) {
-  return d instanceof Date ? Utilities.formatDate(d, TZ, 'yyyy-MM-dd') : String(d || '');
-}
-
-function fmtDateTime(d) {
-  return d instanceof Date ? Utilities.formatDate(d, TZ, 'yyyy-MM-dd HH:mm:ss') : String(d || '');
-}
-
-function ensureAllReadingsHeader(sh) {
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(['Report_ID','Date','Username','Inspector','Unit','Area','Equipment','RPM','Frequency','Point','H Vel','V Vel','A Vel','Acc','H Dis','V Dis','A Dis','Severity','Recommendation','Remarks','Created_On','Updated_On']);
-  }
-}
-
-function generateReportId(dateStr) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName('ALL_READINGS');
-  var d = dateStr.replace(/-/g,'');
-  var prefix = 'VBM-' + d + '-';
-  var maxNum = 0;
-  if (sh && sh.getLastRow() > 1) {
-    var vals = sh.getRange(2, 1, sh.getLastRow()-1, 1).getValues();
-    vals.forEach(function(r) {
-      var id = String(r[0] || '');
-      if (id.indexOf(prefix) === 0) {
-        var num = parseInt(id.replace(prefix,''), 10);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-      }
-    });
-  }
-  return prefix + ('000' + (maxNum + 1)).slice(-4);
-}
-
-// ─── doPost ───────────────────────────────────────────────────────────────────
-function doPost(e) {
-  try {
-    var raw = (e.parameter && e.parameter.payload) ? e.parameter.payload : e.postData.contents;
-    var data = JSON.parse(raw);
-    var action = data.action || 'addRows';
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var allSh = ss.getSheetByName('ALL_READINGS') || ss.insertSheet('ALL_READINGS');
-    ensureAllReadingsHeader(allSh);
-
-    // ── loginUser ──────────────────────────────────────────────────────────────
-    if (action === 'loginUser') {
-      var uname = String(data.username || '').trim();
-      var pass  = String(data.password || '');
-      var uSh   = ss.getSheetByName('USERS');
-      if (!uSh || uSh.getLastRow() <= 1) {
-        return json({status:'error', msg:'USERS sheet not found or empty.'});
-      }
-      var uData = uSh.getDataRange().getValues();
-      // cols: Username(0) Password(1) Role(2) Name(3) Status(4)
-      for (var i = 1; i < uData.length; i++) {
-        if (String(uData[i][0]).trim().toLowerCase() === uname.toLowerCase() &&
-            String(uData[i][1]) === pass &&
-            String(uData[i][4] || 'ACTIVE').toUpperCase() === 'ACTIVE') {
-          return json({status:'ok', user:{
-            username: String(uData[i][0]).trim(),
-            password: '', // never send back
-            role:     String(uData[i][2]).trim().toUpperCase(),
-            name:     String(uData[i][3]).trim()
-          }});
-        }
-      }
-      return json({status:'error', msg:'Invalid credentials or inactive account.'});
-    }
-
-    // ── saveReport ─────────────────────────────────────────────────────────────
-    if (action === 'saveReport') {
-      var reportId  = data.reportId || generateReportId(data.date || new Date().toISOString().slice(0,10));
-      var now       = fmtDateTime(new Date());
-      var readings  = data.readings || [];
-      var recommendation = String(data.recommendation || '');
-      var remarks   = String(data.remarks || '');
-
-      // Build rows batch
-      var newRows = readings.map(function(pt) {
-        return [
-          reportId,
-          data.date || '',
-          data.username || '',
-          data.inspector || '',
-          data.unit || '',
-          data.area || '',
-          data.equipment || '',
-          data.rpm || '',
-          data.frequency || '',
-          pt.point || '',
-          pt.H_Vel !== undefined ? pt.H_Vel : '',
-          pt.V_Vel !== undefined ? pt.V_Vel : '',
-          pt.A_Vel !== undefined ? pt.A_Vel : '',
-          pt.Acc   !== undefined ? pt.Acc   : '',
-          pt.H_Dis !== undefined ? pt.H_Dis : '',
-          pt.V_Dis !== undefined ? pt.V_Dis : '',
-          pt.A_Dis !== undefined ? pt.A_Dis : '',
-          pt.severity || '',
-          recommendation,
-          remarks,
-          now,
-          now
-        ];
-      });
-
-      if (newRows.length > 0) {
-        var startRow = allSh.getLastRow() + 1;
-        allSh.getRange(startRow, 1, newRows.length, 22).setValues(newRows);
-      }
-      return json({status:'ok', reportId: reportId});
-    }
-
-    // ── updateReport ───────────────────────────────────────────────────────────
-    if (action === 'updateReport') {
-      var updId = data.reportId || '';
-      var now2  = fmtDateTime(new Date());
-      if (!updId) return json({status:'error', msg:'reportId required'});
-      var lastRow = allSh.getLastRow();
-      if (lastRow <= 1) return json({status:'ok', updated:0});
-      var vals = allSh.getRange(2, 1, lastRow-1, 22).getValues();
-      var readings2 = data.readings || [];
-      // Map point → new data
-      var ptMap = {};
-      readings2.forEach(function(pt){ ptMap[pt.point] = pt; });
-      var updCount = 0;
-      for (var ri = 0; ri < vals.length; ri++) {
-        if (String(vals[ri][0]) !== updId) continue;
-        var pt = String(vals[ri][9]);
-        var newPtData = ptMap[pt];
-        var rowNum = ri + 2;
-        // Update recommendation and remarks on all rows of this report
-        if (data.recommendation !== undefined) allSh.getRange(rowNum, 19).setValue(data.recommendation);
-        if (data.remarks        !== undefined) allSh.getRange(rowNum, 20).setValue(data.remarks);
-        if (newPtData) {
-          // Update measurement values and severity
-          if (newPtData.H_Vel !== undefined) allSh.getRange(rowNum, 11).setValue(newPtData.H_Vel);
-          if (newPtData.V_Vel !== undefined) allSh.getRange(rowNum, 12).setValue(newPtData.V_Vel);
-          if (newPtData.A_Vel !== undefined) allSh.getRange(rowNum, 13).setValue(newPtData.A_Vel);
-          if (newPtData.Acc   !== undefined) allSh.getRange(rowNum, 14).setValue(newPtData.Acc);
-          if (newPtData.H_Dis !== undefined) allSh.getRange(rowNum, 15).setValue(newPtData.H_Dis);
-          if (newPtData.V_Dis !== undefined) allSh.getRange(rowNum, 16).setValue(newPtData.V_Dis);
-          if (newPtData.A_Dis !== undefined) allSh.getRange(rowNum, 17).setValue(newPtData.A_Dis);
-          if (newPtData.severity) allSh.getRange(rowNum, 18).setValue(newPtData.severity);
-        }
-        allSh.getRange(rowNum, 22).setValue(now2);
-        updCount++;
-      }
-      return json({status:'ok', updated: updCount});
-    }
-
-    // ── deleteReport ───────────────────────────────────────────────────────────
-    if (action === 'deleteReport') {
-      var delId   = data.reportId || '';
-      var delDate = String(data.date || '');
-      var delEquip= String(data.equipment || '');
-      var lastRow3= allSh.getLastRow();
-      if (lastRow3 > 1) {
-        var d3 = allSh.getRange(2, 1, lastRow3-1, 8).getValues();
-        for (var i3 = d3.length-1; i3 >= 0; i3--) {
-          var rowDate3 = fmtDate(d3[i3][1]);
-          var matchId   = delId   && String(d3[i3][0]) === delId;
-          var matchDateEquip = !delId && rowDate3 === delDate && String(d3[i3][6]) === delEquip;
-          if (matchId || matchDateEquip) allSh.deleteRow(i3 + 2);
-        }
-      }
-      return json({status:'ok', deleted:true});
-    }
-
-    // ── legacy deleteRows (backward compat) ────────────────────────────────────
-    if (action === 'deleteRows') {
-      var dDate = String(data.date||''), dEquip = String(data.equipment||'');
-      var lr = allSh.getLastRow();
-      if (lr > 1) {
-        var dd = allSh.getRange(2,1,lr-1,22).getValues();
-        for (var ix=dd.length-1;ix>=0;ix--) {
-          var rd=fmtDate(dd[ix][1]||dd[ix][0]);
-          var eq=String(dd[ix][6]||dd[ix][1]);
-          if(rd===dDate && eq===dEquip) allSh.deleteRow(ix+2);
-        }
-      }
-      return json({status:'ok',deleted:true});
-    }
-
-    // ── legacy editRows / addRows ──────────────────────────────────────────────
-    if (action === 'editRows' || action === 'addRows') {
-      var rows = data.rows || [];
-      var now3 = fmtDateTime(new Date());
-      if (action === 'editRows' && rows.length > 0) {
-        var eDate = rows[0].date, eEquip = rows[0].equipment;
-        var lr2 = allSh.getLastRow();
-        if (lr2 > 1) {
-          var ed = allSh.getRange(2,1,lr2-1,22).getValues();
-          for (var ix2=ed.length-1;ix2>=0;ix2--) {
-            var rd2=fmtDate(ed[ix2][1]||ed[ix2][0]);
-            var eq2=String(ed[ix2][6]||ed[ix2][1]);
-            if(rd2===eDate && eq2===eEquip) allSh.deleteRow(ix2+2);
-          }
-        }
-      }
-      var existing = {};
-      if (allSh.getLastRow() > 1) {
-        var ev = allSh.getRange(2,1,allSh.getLastRow()-1,22).getValues();
-        ev.forEach(function(r,i){ existing[fmtDate(r[1]||r[0])+'||'+String(r[6]||r[1])+'||'+String(r[9]||r[4])]=i+2; });
-      }
-      rows.forEach(function(r) {
-        var k=(r.date)+'||'+(r.equipment)+'||'+(r.point);
-        var rid = r.reportId || '';
-        var row22 = [rid,r.date,r.username||r.inspector||'',r.inspector||'',r.unit,r.area,r.equipment,r.rpm||'',r.frequency||'',r.point,r.H_Vel,r.V_Vel,r.A_Vel,r.Acc,r.H_Dis,r.V_Dis,r.A_Dis,r.severity,r.recommendations||r.recommendation||'',r.remarks||'',now3,now3];
-        if(!existing[k]){
-          allSh.appendRow(row22);
-        } else {
-          allSh.getRange(existing[k],1,1,22).setValues([row22]);
-        }
-      });
-      return json({status:'ok'});
-    }
-
-    return json({status:'error', msg:'Unknown action: ' + action});
-  } catch(err) {
-    return json({status:'error', msg: err.message + ' | ' + err.stack});
-  }
-}
-
-// ─── doGet ────────────────────────────────────────────────────────────────────
-function doGet(e) {
-  try {
-    var action = (e && e.parameter) ? (e.parameter.action || '') : '';
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // ── ping ──────────────────────────────────────────────────────────────────
-    if (action === 'ping') return json({status:'ok', msg:'VibeMon v4 active'});
-
-    // ── loginUser (GET) ───────────────────────────────────────────────────────
-    if (action === 'loginUser') {
-      var uname = String((e && e.parameter) ? (e.parameter.username || '') : '').trim();
-      var pass  = String((e && e.parameter) ? (e.parameter.password || '') : '');
-      var uSh   = ss.getSheetByName('USERS');
-      if (!uSh || uSh.getLastRow() <= 1) {
-        return json({status:'error', msg:'USERS sheet not found or empty.'});
-      }
-      var uData = uSh.getDataRange().getValues();
-      for (var i = 1; i < uData.length; i++) {
-        if (String(uData[i][0]).trim().toLowerCase() === uname.toLowerCase() &&
-            String(uData[i][1]) === pass &&
-            String(uData[i][4] || 'ACTIVE').toUpperCase() === 'ACTIVE') {
-          return json({status:'ok', user:{
-            username: String(uData[i][0]).trim(),
-            password: '',
-            role:     String(uData[i][2]).trim().toUpperCase(),
-            name:     String(uData[i][3]).trim()
-          }});
-        }
-      }
-      return json({status:'error', msg:'Invalid credentials or inactive account.'});
-    }
-
-    // ── getAll / getReadings ───────────────────────────────────────────────────
-    if (action === 'getAll' || action === 'getReadings') {
-      var allSh = ss.getSheetByName('ALL_READINGS');
-      if (!allSh || allSh.getLastRow() <= 1) return json({status:'ok', rows:[]});
-      var d = allSh.getDataRange().getValues();
-      var rows = [];
-      // Support both old (15-col) and new (22-col) format
-      for (var i = 1; i < d.length; i++) {
-        var r = d[i]; if (!r[0] && !r[1]) continue;
-        var is22 = d[0].length >= 22;
-        if (is22) {
-          rows.push({
-            reportId: String(r[0]||''),
-            date:     fmtDate(r[1]),
-            username: String(r[2]||''),
-            inspector:String(r[3]||''),
-            unit:     String(r[4]||''),
-            area:     String(r[5]||''),
-            equipment:String(r[6]||''),
-            rpm:      String(r[7]||''),
-            frequency:String(r[8]||''),
-            point:    String(r[9]||''),
-            H_Vel:    String(r[10]||''), V_Vel:String(r[11]||''), A_Vel:String(r[12]||''),
-            Acc:      String(r[13]||''), H_Dis:String(r[14]||''), V_Dis:String(r[15]||''), A_Dis:String(r[16]||''),
-            severity: String(r[17]||'NORMAL'),
-            recommendations: String(r[18]||''),
-            remarks:  String(r[19]||''),
-            createdOn:String(r[20]||''),
-            updatedOn:String(r[21]||'')
-          });
-        } else {
-          // legacy 15-col format
-          rows.push({
-            reportId:'', date:fmtDate(r[0]), username:'', inspector:String(r[13]||''),
-            unit:String(r[2]||''), area:String(r[3]||''), equipment:String(r[1]||''),
-            rpm:'', frequency:'', point:String(r[4]||''),
-            H_Vel:String(r[5]||''),V_Vel:String(r[6]||''),A_Vel:String(r[7]||''),
-            Acc:String(r[8]||''),H_Dis:String(r[9]||''),V_Dis:String(r[10]||''),A_Dis:String(r[11]||''),
-            severity:String(r[12]||'NORMAL'), recommendations:String(r[14]||''),
-            remarks:'', createdOn:'', updatedOn:''
-          });
-        }
-      }
-      return json({status:'ok', rows:rows});
-    }
-
-    // ── getEquipmentMaster ─────────────────────────────────────────────────────
-    if (action === 'getEquipmentMaster') {
-      var emSh = ss.getSheetByName('Equipment Master') || ss.getSheetByName('EQUIPMENT MASTER') || ss.getSheetByName('equipment master');
-      if (!emSh || emSh.getLastRow() <= 1) return json({status:'ok', equipment:[]});
-      var em = emSh.getDataRange().getValues();
-      // Header: S.NO.(0) UNITS/STAGE(1) AREA(2) EQUIPMENTS NAME(3) KW(4) RPM(5) VIBRATION LIMITS(6) EQUIPMENT ROUTES(7) Frequency(8) PARAMETERS(9)
-      var equipment = [];
-      for (var i = 1; i < em.length; i++) {
-        var r = em[i];
-        if (!r[3]) continue; // skip empty rows
-        var limStr = String(r[6]||'');
-        var limits = parseLimits(limStr);
-        equipment.push({
-          sno:       String(r[0]||''),
-          unit:      String(r[1]||'').trim(),
-          area:      String(r[2]||'').trim(),
-          name:      String(r[3]||'').trim(),
-          kw:        String(r[4]||''),
-          rpm:       String(r[5]||''),
-          limitsRaw: limStr,
-          limits:    limits,
-          points:    String(r[7]||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
-          frequency: parseInt(r[8]||'15', 10) || 15,
-          params:    String(r[9]||'H Vel,V Vel,A Vel,Acc').split(',').map(function(s){return s.trim();}).filter(Boolean)
-        });
-      }
-      return json({status:'ok', equipment:equipment});
-    }
-
-    // ── getUsers ───────────────────────────────────────────────────────────────
-    if (action === 'getUsers') {
-      var uSh2 = ss.getSheetByName('USERS');
-      if (!uSh2 || uSh2.getLastRow() <= 1) return json({status:'ok', users:[]});
-      var ud = uSh2.getDataRange().getValues();
-      var users = [];
-      for (var i = 1; i < ud.length; i++) {
-        if (String(ud[i][4]||'ACTIVE').toUpperCase() === 'ACTIVE') {
-          users.push({ username: String(ud[i][0]).trim(), role: String(ud[i][2]).trim().toUpperCase(), name: String(ud[i][3]).trim() });
-        }
-      }
-      return json({status:'ok', users:users});
-    }
-
-    // ── getRecommendations ────────────────────────────────────────────────────
-    if (action === 'getRecommendations') {
-      var recSh = ss.getSheetByName('RECOMMENDATIONS_MASTER');
-      if (!recSh || recSh.getLastRow() <= 1) return json({status:'ok', recommendations:[]});
-      var rd = recSh.getDataRange().getValues();
-      var recs = [];
-      for (var i = 1; i < rd.length; i++) {
-        if (rd[i][1]) recs.push({ category: String(rd[i][0]||'General'), recommendation: String(rd[i][1]) });
-      }
-      return json({status:'ok', recommendations:recs});
-    }
-
-    return json({status:'ok', msg:'VibeMon v4 active'});
-  } catch(err) {
-    return json({status:'error', msg: err.message});
-  }
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function json(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function parseLimits(limStr) {
-  // Parse strings like:
-  //  "Normal Upto 4.5 mm/s, Alarm 4.5 to 7.1 mm/s, Alert 7.1 to 11.2 mm/s, Critical >11.2 mm/s"
-  //  "Normal Up to 50 mic, Alarm 50 to 75 mic, Alert 75 to 100 mic, Critical >100 mic"
-  if (!limStr) return null;
-  var s = limStr.replace(/\n/g,' ').replace(/,/g,' ');
-  var unit = (s.toLowerCase().indexOf('mic') >= 0) ? 'mic' : 'mm/s';
-  function extract(pat) {
-    var m = s.match(pat);
-    return m ? parseFloat(m[1]) : null;
-  }
-  var alarm    = extract(/alarm[\s\S]*?(\d+(?:\.\d+)?)\s*(?:to|mm|mic)/i);
-  var alertVal = extract(/alert[\s\S]*?(\d+(?:\.\d+)?)\s*(?:to|mm|mic)/i);
-  var crit     = extract(/critical\s*[>≥]\s*(\d+(?:\.\d+)?)/i);
-  if (!alarm) alarm    = extract(/(\d+(?:\.\d+)?)\s*to\s*\d/i);
-  if (!crit)  crit     = extract(/>(\d+(?:\.\d+)?)/i);
-  if (alarm === null && alertVal === null && crit === null) return null;
-  return { u: unit, a: alarm || 4.5, at: alertVal || 7.1, c: crit || 11.2 };
-}</pre>
-      </div>
-
-      <!-- Status info -->
-      <div class="gs-step">
-        <h3>How Data Works — v4 (Google Sheets Only)</h3>
-        <div style="background:#EFF6FF;border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#1D4E8A;line-height:1.7">
-          <strong>🗄️ Google Sheet = ONLY Database</strong> — All data comes from and is saved to Google Sheet. No localStorage, no hardcoded users, no hardcoded equipment.
-        </div>
-        <p style="font-size:12px;font-weight:700;margin-bottom:6px">Required Sheets in your Google Spreadsheet:</p>
-        <ol style="font-size:11px;color:var(--muted);line-height:2;padding-left:18px">
-          <li><strong>USERS</strong> — Username | Password | Role (ADMIN/EDITOR/VIEWER) | Name | Status (ACTIVE)</li>
-          <li><strong>Equipment Master</strong> — S.NO. | UNITS/STAGE | AREA | EQUIPMENTS NAME | KW | RPM | VIBRATION LIMITS | EQUIPMENT ROUTES | Frequency (in Days) | PARAMETERS</li>
-          <li><strong>RECOMMENDATIONS_MASTER</strong> — Category | Recommendation</li>
-          <li><strong>SETTINGS</strong> — Key | Value (optional)</li>
-          <li><strong>ALL_READINGS</strong> — Report_ID | Date | Username | Inspector | Unit | Area | Equipment | RPM | Frequency | Point | H Vel | V Vel | A Vel | Acc | H Dis | V Dis | A Dis | Severity | Recommendation | Remarks | Created_On | Updated_On</li>
-        </ol>
-        <div style="background:#FEF3C7;border-radius:6px;padding:8px 12px;margin-top:8px;font-size:11px;color:#92400E">
-          ⚠️ Column headers must match EXACTLY as shown. After pasting the Apps Script, deploy as NEW Web App with Execute as: Me, Access: Anyone.
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
-
 
 
 <!-- TEMPLATE BUILDER MODAL -->
@@ -1366,11 +1094,24 @@ function parseLimits(limStr) {
       <button class="btn btn-primary" onclick="createEditorUser()">➕ Create Engineer Account</button>
       <div id="admin-msg" style="margin-top:8px"></div>
       <div style="margin-top:18px;font-size:13px;font-weight:700;margin-bottom:8px">Current Users</div>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" style="margin-bottom:18px">
         <table>
           <thead><tr><th>Username</th><th>Display Name</th><th>Role</th><th>Action</th></tr></thead>
           <tbody id="user-table-body"></tbody>
         </table>
+      </div>
+      <!-- Schedule Excel Upload Section -->
+      <div style="margin-top:18px;border-top:1px dashed var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">📅 Upload Custom Schedule Excel</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+          Upload an Excel file (e.g. <code>NTPC_Dadri_Vibration_Schedule_Universal.xlsx</code>) containing sheets named: <strong>Precise</strong>, <strong>Chaitanya Bharthi</strong>, and <strong>Chaitanya Bharthi-A</strong> to update the daily schedule day-wise and team-wise.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input type="file" id="admin-schedule-upload" accept=".xlsx, .xls" style="font-size:12px;padding:6px;border:1px solid var(--border2);border-radius:var(--radius);flex:1;background:var(--bg-input);color:var(--text-main)">
+          <button class="btn btn-green" onclick="uploadCustomSchedule()" style="height:32px;font-size:12px;font-weight:600">⚡ Upload</button>
+        </div>
+        <div id="admin-schedule-msg" style="margin-top:6px;font-size:11px;font-weight:600"></div>
+        <button class="btn btn-sm" onclick="resetCustomSchedule()" style="margin-top:10px;font-size:11px;color:var(--red);border-color:var(--red);background:transparent">Revert to Default Schedule</button>
       </div>
     </div>
   </div>
@@ -1388,6 +1129,7 @@ function parseLimits(limStr) {
 </div>
 
 </div><!-- end .app -->
+
 
 <script>
 // ======= MOBILE-SAFE FILE DOWNLOAD =======
@@ -1542,10 +1284,140 @@ function mobileOpenWhatsApp(url){ _waOpen(url); }
 // ============================================================
 const GS_KEY = 'vibromon_gsurl';
 // Hardcoded default GS URL — always available to all users without any setup
-const GS_DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbweHIGuhXtzEqcqxpcmb2I1tLRoUnAtQzOOdQ_Y3n6dEJp41axYeABtUwf48tn0crOB/exec';
+const GS_DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwDjuFYnyhXizZMwYb1OuS3rcJkwPO4bEys_9iKd3UAcesrEXGvDDXyRiTzor1eCwU/exec';
 function getGSUrl() {
   try { return localStorage.getItem(GS_KEY) || GS_DEFAULT_URL; } catch(e){ return GS_DEFAULT_URL; }
 }
+// Exception responsible department assignments: { equipment: dept }
+// NOTE: dept is now sourced directly from Alert/Critical readings (responsibleDept field).
+// The legacy VIBRATION_EXCEPTIONS sheet is no longer used and can be deleted.
+const DEPTS_LIST = ['AHD','CHP','EMD','OFS','BMD','TMD','C&I','TAD'];
+
+// Resolve responsible dept for an equipment exception:
+// reads the dept entered on the reading directly (no external sheet fallback).
+function excDeptFor(equipment, readingDept) {
+  const rd = (readingDept || '').trim();
+  if (rd) return rd;
+  // Fallback: look for the most recent Alert/Critical reading for this equipment
+  // that has a dept assigned, in case this specific reading row doesn't have one.
+  const alertRows = READINGS.filter(r =>
+    r.equipment === equipment &&
+    ['ALERT','CRITICAL','ALARM'].includes(r.severity) &&
+    r.responsibleDept
+  );
+  if (alertRows.length) {
+    return alertRows.sort((a,b) => (b.date||'').localeCompare(a.date||''))[0].responsibleDept;
+  }
+  return '';
+}
+
+// ======= SUCCESS STORIES =======
+// Equipment that recovered from Alert/Critical → Normal. Persisted permanently
+// in the SUCCESS_STORIES Google Sheet. Each recovery event = one entry.
+let SUCCESS_STORIES = [];
+
+async function loadSuccessStories() {
+  const gsUrl = getGSUrl();
+  if (!gsUrl) return;
+  try {
+    const r = await fetch(gsUrl + '?action=getSuccessStories', { method: 'GET', redirect: 'follow' });
+    const data = await r.json();
+    if (data.status === 'ok' && Array.isArray(data.stories)) {
+      SUCCESS_STORIES = data.stories;
+    }
+  } catch(e) {}
+}
+
+// Scan READINGS for Alert/Critical → Normal transitions per equipment.
+// Returns one event per recovery (latest-reading-before-normal was Alert/Critical).
+function computeRecoveryEvents() {
+  const byEquip = {};
+  READINGS.forEach(r => { (byEquip[r.equipment] = byEquip[r.equipment] || []).push(r); });
+
+  const events = [];
+  Object.keys(byEquip).forEach(equip => {
+    // group an equipment's rows into reading sessions
+    const sMap = {};
+    byEquip[equip].forEach(r => {
+      const key = r.reportId ? ('R:' + r.reportId)
+                : ('D:' + r.date + '|' + (r.createdOn || '') + '|' + (r.inspector || r.username || ''));
+      if (!sMap[key]) sMap[key] = { date:r.date, createdOn:r.createdOn||'', reportId:r.reportId||'',
+                                    unit:r.unit, area:r.area, rows:[], recs:new Set(), depts:[] };
+      sMap[key].rows.push(r);
+      (r.recommendations || '').split('|').map(x=>x.trim()).filter(Boolean).forEach(x=>sMap[key].recs.add(x));
+      if (r.responsibleDept) sMap[key].depts.push(r.responsibleDept);
+    });
+
+    const sessions = Object.values(sMap).map(s => {
+      s.sev = worstSev(s.rows.map(r=>r.severity));
+      let maxVel = 0, maxAcc = 0;
+      s.rows.forEach(r => {
+        ['H_Vel','V_Vel','A_Vel'].forEach(k => { const v=parseFloat(r[k]); if(!isNaN(v)&&v>maxVel) maxVel=v; });
+        const a = parseFloat(r.Acc); if(!isNaN(a)&&a>maxAcc) maxAcc=a;
+      });
+      s.maxVel = maxVel; s.maxAcc = maxAcc;
+      s.respDept = s.depts.find(Boolean) || '';
+      return s;
+    }).sort((a,b) => a.date.localeCompare(b.date) || (a.createdOn||'').localeCompare(b.createdOn||''));
+
+    for (let i=1; i<sessions.length; i++) {
+      const cur = sessions[i], prev = sessions[i-1];
+      if (cur.sev === 'NORMAL' && (prev.sev === 'ALERT' || prev.sev === 'CRITICAL')) {
+        const storyId = equip + '@' + (cur.reportId || (cur.date + '_' + (cur.createdOn||'').replace(/[^0-9]/g,'')));
+        events.push({
+          storyId, equipment: equip,
+          unit: cur.unit || prev.unit, area: cur.area || prev.area,
+          dept: prev.respDept || excDeptFor(equip, ''),
+          resolvedDate: cur.date,
+          lastMaxVel:  prev.maxVel ? prev.maxVel.toFixed(2) : '',
+          lastMaxAcc:  prev.maxAcc ? prev.maxAcc.toFixed(2) : '',
+          afterMaxVel: cur.maxVel  ? cur.maxVel.toFixed(2)  : '',
+          afterMaxAcc: cur.maxAcc  ? cur.maxAcc.toFixed(2)  : '',
+          recommendations: [...prev.recs].join(' | '),
+          alertDate: prev.date, alertSev: prev.sev
+        });
+      }
+    }
+  });
+  return events;
+}
+
+// Detect new recovery events and persist them (auto-shift). Idempotent via storyId.
+async function syncSuccessStories() {
+  const events = computeRecoveryEvents();
+  const existing = new Set(SUCCESS_STORIES.map(s => s.storyId));
+  const fresh = events.filter(e => !existing.has(e.storyId));
+  const gsUrl = getGSUrl();
+  for (const e of fresh) {
+    SUCCESS_STORIES.push(Object.assign({}, e, { maintenance:'', savings:'', createdOn:'', updatedOn:'' }));
+    existing.add(e.storyId);
+    if (gsUrl) {
+      try {
+        const fd = new FormData();
+        fd.append('payload', JSON.stringify(Object.assign({ action:'addSuccessStory' }, e)));
+        await fetch(gsUrl, { method:'POST', body:fd, mode:'no-cors' });
+      } catch(err) {}
+    }
+  }
+  return fresh.length;
+}
+
+// Save an editable field (Maintenance work done / Savings) back to the sheet.
+async function saveStoryField(storyId, field, value) {
+  if (AUTH.role === 'viewer') return;
+  const s = SUCCESS_STORIES.find(x => x.storyId === storyId);
+  if (s) s[field] = value;
+  const gsUrl = getGSUrl();
+  if (!gsUrl) return;
+  const payload = { action:'updateSuccessStory', storyId };
+  payload[field] = value;
+  try {
+    const fd = new FormData();
+    fd.append('payload', JSON.stringify(payload));
+    await fetch(gsUrl, { method:'POST', body:fd, mode:'no-cors' });
+  } catch(e) {}
+}
+
 // Dynamic equipment limits — populated from Equipment Master
 const DYNAMIC_EQUIP_LIMITS = {};
 
@@ -1662,6 +1534,16 @@ let STD_RECS = [
   "Check looseness at baseplate, anchor bolts, pipe supports — tighten as required."
 ];
 
+// Recommendations that must ALWAYS be available in the picker, even after the
+// RECOMMENDATIONS_MASTER sheet overwrites STD_RECS on load.
+const EXTRA_RECS = [
+  "Decoupled trial to be taken for further analysis"
+];
+function mergeExtraRecs() {
+  EXTRA_RECS.forEach(r => { if (!STD_RECS.includes(r)) STD_RECS.push(r); });
+}
+mergeExtraRecs();
+
 let MASTER = [], READINGS = [];
 let entryEquip = null, entryReadings = {}, entryRecs = [];
 
@@ -1706,6 +1588,7 @@ async function fetchRecommendations() {
     const data = JSON.parse(text);
     if (data.status === 'ok' && data.recommendations && data.recommendations.length > 0) {
       STD_RECS = data.recommendations.map(r => r.recommendation);
+      mergeExtraRecs();
       console.log('Recommendations loaded:', STD_RECS.length);
       return true;
     }
@@ -1717,18 +1600,52 @@ async function fetchRecommendations() {
 
 function loadData() {
   READINGS = [];
-  // Fetch all data from Google Sheet
-  Promise.all([fetchEquipmentMaster(), fetchRecommendations()])
-    .then(() => {
-      populateFilters();
-      filterEntryList();
-      populateUserFilter && populateUserFilter();
-      return fetchFromGS();
-    })
-    .catch((err) => {
-      console.warn('Initial data load error:', err);
-      return fetchFromGS();
-    });
+  const statusEl = document.getElementById('gs-result');
+  if (statusEl) statusEl.innerHTML = '<div class="alert-box alert-info">⏳ Initializing connection & fetching data from Google Sheets...</div>';
+  
+  Promise.all([
+    fetchEquipmentMaster(),
+    fetchRecommendations(),
+    fetchVibeSchedule(),
+    _fetchAllFromGS()
+  ])
+  .then(async ([masterOk, recsOk, fetchResult]) => {
+    populateFilters();
+    populateUserFilter && populateUserFilter();
+    
+    if (fetchResult && fetchResult.success) {
+      await loadSuccessStories();
+      await syncSuccessStories();
+      const msg = `✅ Connection active! ${READINGS.length} readings synced successfully.`;
+      if (statusEl) statusEl.innerHTML = `<div class="alert-box alert-suc">${msg}</div>`;
+      
+      const banner = document.getElementById('gs-setup-banner');
+      if(banner) { banner.remove(); const nav=document.querySelector('.nav'); if(nav) nav.style.marginTop=''; }
+    } else {
+      const errMsg = fetchResult ? fetchResult.error : 'Sync failed';
+      if (statusEl) statusEl.innerHTML = `<div class="alert-box alert-warn">⚠️ Sync failed: ${errMsg}<br><small>Check connection settings on the Google Sheets tab.</small></div>`;
+    }
+    
+    // Refresh UI
+    const activeTab = document.querySelector('.screen.active');
+    if(activeTab) {
+      const id = activeTab.id;
+      if(id==='tab-history') renderHistory();
+      if(id==='tab-entry') filterEntryList();
+      if(id==='tab-daily') dsRender(); if(id==='tab-pending') dpRender();
+    }
+  })
+  .catch((err) => {
+    console.warn('Initial data load error:', err);
+    if (statusEl) statusEl.innerHTML = `<div class="alert-box alert-warn">⚠️ Initial load error: ${err.message}</div>`;
+    const activeTab = document.querySelector('.screen.active');
+    if(activeTab) {
+      const id = activeTab.id;
+      if(id==='tab-history') renderHistory();
+      if(id==='tab-entry') filterEntryList();
+      if(id==='tab-daily') dsRender(); if(id==='tab-pending') dpRender();
+    }
+  });
 }
 
 function saveReadings() {
@@ -1739,7 +1656,10 @@ async function manualFetchGS() {
   const res = document.getElementById('gs-result');
   if(res) res.innerHTML='<div class="alert-box alert-info">⏳ Fetching data from Google Sheets...</div>';
   const result = await _fetchAllFromGS();
+  await fetchVibeSchedule();
   if(result.success) {
+    await loadSuccessStories();
+    await syncSuccessStories();
     const msg = `✅ Sync complete! ${READINGS.length} readings loaded from Google Sheet.`;
     // Dismiss the setup banner if it exists
     const banner = document.getElementById('gs-setup-banner');
@@ -1748,6 +1668,9 @@ async function manualFetchGS() {
     renderHistory && renderHistory();
     renderDashboard && renderDashboard();
     populateUserFilter && populateUserFilter();
+    const activeTab = document.querySelector('.screen.active');
+    if(activeTab && activeTab.id==='tab-daily') dsRender();
+    if(activeTab && activeTab.id==='tab-pending') dpRender();
   } else {
     if(res) res.innerHTML=`<div class="alert-box alert-warn">⚠️ Sync failed: ${result.error}<br><small>Steps to fix:<br>1. Open Google Sheet → Extensions → Apps Script<br>2. Paste the updated script from Step 2 below<br>3. Click Deploy → <strong>New deployment</strong> (not Manage existing)<br>4. Execute as: <strong>Me</strong>, Access: <strong>Anyone</strong><br>5. Copy the new URL and paste it above</small></div>`;
   }
@@ -1795,10 +1718,29 @@ async function _fetchAllFromGS() {
       return s; // return as-is if we can't parse
     }
 
+    function _normalizeDate(val) {
+      if (!val) return '';
+      const s = String(val).trim();
+      if (!s) return '';
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      try {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          const pad = n => String(n).padStart(2,'0');
+          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        }
+      } catch(e) {}
+      return s;
+    }
+
     // Normalize field names that Google Sheets / Apps Script may return with different casing
     // e.g. "Created_On" → "createdOn", "Updated_On" → "updatedOn", "ReportId" → "reportId"
     READINGS = rows.map(r => {
       const n = Object.assign({}, r);
+      // Normalize Date to YYYY-MM-DD
+      const dateVal = n.date || n.Date || n['Date'] || '';
+      n.date = _normalizeDate(dateVal);
+      delete n.Date; delete n['Date'];
       // createdOn: handles "Created_On", "created_on", "CreatedOn", "createdon"
       if (!n.createdOn) {
         n.createdOn = n.Created_On || n.created_on || n.CreatedOn || n.createdon || n['Created On'] || '';
@@ -1814,6 +1756,12 @@ async function _fetchAllFromGS() {
       if (!n.reportId) {
         n.reportId = n.ReportId || n.Report_Id || n.report_id || n.REPORTID || '';
       }
+      // responsibleDept: handles "Responsible_Dept", "Responsible Dept", etc.
+      if (!n.responsibleDept) {
+        n.responsibleDept = n.Responsible_Dept || n.responsible_dept || n.ResponsibleDept || n['Responsible Dept'] || '';
+      }
+      n.responsibleDept = String(n.responsibleDept || '').trim();
+      delete n.Responsible_Dept; delete n.responsible_dept; delete n.ResponsibleDept; delete n['Responsible Dept'];
       // Clean up duplicate keys to avoid confusion
       delete n.Created_On; delete n.created_on; delete n.CreatedOn; delete n.createdon; delete n['Created On'];
       delete n.Updated_On; delete n.updated_on; delete n.UpdatedOn; delete n.updatedon; delete n['Updated On'];
@@ -1829,16 +1777,19 @@ async function _fetchAllFromGS() {
 }
 
 async function fetchFromGS() {
-  // Background auto-fetch on page load — GSheet is source of truth
   const result = await _fetchAllFromGS();
-  // Always refresh UI after fetch attempt
+  if (result.success) {
+    await loadSuccessStories();
+    await syncSuccessStories();
+    const statusEl = document.getElementById('gs-result');
+    if (statusEl) statusEl.innerHTML = `<div class="alert-box alert-suc">✅ Synced successfully! ${READINGS.length} records loaded.</div>`;
+  }
   const activeTab = document.querySelector('.screen.active');
   if(activeTab) {
     const id = activeTab.id;
     if(id==='tab-history') renderHistory();
-    if(id==='tab-dashboard') renderDashboard();
     if(id==='tab-entry') filterEntryList();
-    if(id==='tab-exceptions') renderExceptions();
+    if(id==='tab-daily') dsRender(); if(id==='tab-pending') dpRender();
   }
   if(result.success) {
     console.log('Synced ' + result.total + ' records from Google Sheet');
@@ -1888,7 +1839,7 @@ function populateFilters() {
 }
 
 function showTab(t) {
-  if (t==='gsheet' && AUTH.role!=='admin') { alert('Admin only.'); return; }
+  if (!['entry','history','daily','pending'].includes(t)) { showTab('daily'); return; }
   if (t==='entry' && AUTH.role==='viewer') { alert('Viewers cannot access Data Entry. Please login as Engineer or Admin.'); showTab('history'); return; }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
@@ -1898,21 +1849,7 @@ function showTab(t) {
     if(b.getAttribute('onclick') && b.getAttribute('onclick').includes("'"+t+"'")) b.classList.add('active');
   });
   if(t==='history') renderHistory();
-  if(t==='dashboard') renderDashboard();
-  if(t==='exceptions') renderExceptions();
-  if(t==='gsheet') {
-    const el=document.getElementById('gs-url');
-    const savedUrl = getGSUrl();
-    if(el) el.value = savedUrl || GS_DEFAULT_URL;
-    const res=document.getElementById('gs-result');
-    if(res) {
-      res.innerHTML = `<div class="alert-box alert-suc">✅ Google Sheet connected. ${READINGS.length} readings loaded. All data saves directly to Google Sheet.<br>
-        <small style="opacity:.8">Active URL: <span style="font-family:monospace;word-break:break-all">${(savedUrl||GS_DEFAULT_URL).slice(0,80)}...</span></small></div>`;
-    }
-  }
-  // Responsive: dashboard 2-col to 1-col on small screens
-  const d2=document.getElementById('dash-2col');
-  if(d2) d2.style.gridTemplateColumns=window.innerWidth<640?'1fr':'1fr 1fr';
+  if(t==='daily') { dsRender(); } if(t==='pending') { dpRender(); }
   // Update mobile bottom nav
   document.querySelectorAll('.mobile-tab').forEach(b=>b.classList.remove('active'));
   const mbTab=document.getElementById('mb-'+t);
@@ -1924,8 +1861,24 @@ function getLastReading(equipName) {
   return recs.length ? recs.sort((a,b)=>new Date(b.date)-new Date(a.date))[0] : null;
 }
 
-function schedInfo(e) {
-  const last = getLastReading(e.name);
+// PERF: build a {equipmentName: latestReading} map in a SINGLE pass over READINGS.
+// Use this instead of calling getLastReading() inside a loop over equipment —
+// calling getLastReading() per-equipment re-scans the whole READINGS array every
+// time (O(equipment * readings)), which is what was freezing the app when typing
+// in the Data Entry / Template Builder search boxes or switching into those tabs
+// once enough reading history had built up.
+function buildLastReadingMap() {
+  const map = {};
+  READINGS.forEach(r => {
+    if (!r.equipment) return;
+    const prev = map[r.equipment];
+    if (!prev || new Date(r.date) > new Date(prev.date)) map[r.equipment] = r;
+  });
+  return map;
+}
+
+function schedInfo(e, last) {
+  if (last === undefined) last = getLastReading(e.name);
   if(!last) return {status:'NEW'};
   const d = Math.floor((new Date()-new Date(last.date))/86400000);
   if(d>e.frequency) return {status:'OVERDUE',days:d,over:d-e.frequency};
@@ -1941,8 +1894,9 @@ function filterEntryList() {
   const filtered=MASTER.filter(e=>(!unit||e.unit===unit)&&(!area||e.area===area)&&(!q||e.name.toLowerCase().includes(q)));
   document.getElementById('e-list-count').textContent = filtered.length+' equipment';
   const tbody=document.getElementById('equip-select-body'); tbody.innerHTML='';
+  const lastReadingMap = buildLastReadingMap(); // PERF: one pass over READINGS, not per-equipment
   filtered.slice(0,300).forEach(e=>{
-    const si=schedInfo(e), last=getLastReading(e.name);
+    const last=lastReadingMap[e.name]||null, si=schedInfo(e,last);
     let badge='';
     if(si.status==='OVERDUE') badge=`<span class="badge badge-ov">Overdue ${si.over}d</span>`;
     else if(si.status==='DUE') badge='<span class="badge badge-due">Due today</span>';
@@ -1952,7 +1906,7 @@ function filterEntryList() {
     tr.style.cursor='pointer';
     tr.onclick=()=>selectEquip(e);
     tr.innerHTML=`<td data-label="Unit">${e.unit}</td><td data-label="Area">${e.area}</td><td data-label="Equipment" style="font-weight:600">${e.name}</td>
-      <td data-label="Pts" style="color:var(--muted)">${e.points.length}</td><td data-label="Freq">${e.frequency}d</td>
+      <td data-label="Freq">${e.frequency}d</td>
       <td data-label="Schedule">${badge}</td><td data-label="Last Reading" style="color:var(--muted);font-size:11px">${last?fmtDateDisplay(last.date):'—'}</td>`;
     tbody.appendChild(tr);
   });
@@ -1980,6 +1934,14 @@ function selectEquip(e) {
   }
   document.getElementById('s2-eq-meta').textContent=`${e.unit} · ${e.area} · Every ${e.frequency} days · ${e.points.length} measurement points`;
   document.getElementById('entry-date').value=new Date().toISOString().slice(0,10);
+  // Populate Responsible Dept dropdown (optional); preselect last-known dept for this equipment
+  const rdSel = document.getElementById('entry-resp-dept');
+  if (rdSel) {
+    while (rdSel.options.length > 1) rdSel.remove(1);
+    DEPTS_LIST.forEach(d => rdSel.add(new Option(d, d)));
+    const known = excDeptFor(e.name, '');
+    rdSel.value = (known && DEPTS_LIST.includes(known)) ? known : '';
+  }
   const si=schedInfo(e);
   const alertEl=document.getElementById('s2-alert'), badgeEl=document.getElementById('s2-sched-badge');
   if(si.status==='OVERDUE') {
@@ -2201,6 +2163,7 @@ async function saveSession() {
   const allRecs=[...entryRecs.map(r=>r.value).filter(Boolean)];
   const extra=document.getElementById('extra-remarks').value.trim();
   const recsStr=allRecs.join(' | ');
+  const responsibleDept=(document.getElementById('entry-resp-dept')?.value||'').trim();
 
   const readings=[];
   e.points.forEach(pt=>{
@@ -2236,7 +2199,7 @@ async function saveSession() {
     equipment:e.name, rpm:e.rpm||'', frequency:e.frequency||'',
     point:pt.point, H_Vel:pt.H_Vel, V_Vel:pt.V_Vel, A_Vel:pt.A_Vel, Acc:pt.Acc,
     H_Dis:pt.H_Dis, V_Dis:pt.V_Dis, A_Dis:pt.A_Dis, severity:pt.severity,
-    recommendations:recsStr, remarks:extra, createdOn:_nowStr, updatedOn:_nowStr
+    recommendations:recsStr, remarks:extra, responsibleDept, createdOn:_nowStr, updatedOn:_nowStr
   }));
   READINGS.push(...legacyRows);
   saveReadings();
@@ -2258,7 +2221,7 @@ async function saveSession() {
       action: 'saveReport',
       reportId, date, username: AUTH.username, inspector, unit:e.unit, area:e.area,
       equipment:e.name, rpm:e.rpm||'', frequency:e.frequency||'',
-      recommendation: recsStr, remarks: extra,
+      recommendation: recsStr, remarks: extra, responsibleDept,
       readings
     };
     // Try 1: FormData no-cors (most compatible with GAS on mobile)
@@ -2282,7 +2245,7 @@ async function saveSession() {
       // Non-2xx but not a network error — try no-cors fallback silently, then show success
       // (Apps Script often returns 302 which fetch in cors mode may throw)
       const fd=new FormData();
-      fd.append('payload',JSON.stringify({action:'saveReport',reportId,date,username:AUTH.username,inspector,unit:e.unit,area:e.area,equipment:e.name,rpm:e.rpm||'',frequency:e.frequency||'',recommendation:recsStr,remarks:extra,readings}));
+      fd.append('payload',JSON.stringify({action:'saveReport',reportId,date,username:AUTH.username,inspector,unit:e.unit,area:e.area,equipment:e.name,rpm:e.rpm||'',frequency:e.frequency||'',recommendation:recsStr,remarks:extra,responsibleDept,readings}));
       fetch(gsUrl,{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
       alert(`✅ Saved! Report ID: ${reportId}\n${readings.length} points for ${e.name}\n\nUse "Export Excel" in History tab to download.`);
     }
@@ -2293,12 +2256,15 @@ async function saveSession() {
     fd.append('payload', JSON.stringify({
       action:'saveReport', reportId, date, username:AUTH.username, inspector,
       unit:e.unit, area:e.area, equipment:e.name, rpm:e.rpm||'', frequency:e.frequency||'',
-      recommendation:recsStr, remarks:extra, readings
+      recommendation:recsStr, remarks:extra, responsibleDept, readings
     }));
     fetch(gsUrl, {method:'POST', body:fd, mode:'no-cors'}).catch(()=>{});
     if(saveBtn) { saveBtn.disabled=false; saveBtn.textContent='💾 Save & Export'; }
     alert(`✅ Saved! Report ID: ${reportId}\n${readings.length} points for ${e.name}\n\nUse "Export Excel" in History tab to download.`);
   }
+
+  // Auto-detect any new Alert/Critical → Normal recovery from this save
+  try { await syncSuccessStories(); } catch(e) {}
 
   entryEquip=null; entryReadings={}; entryRecs=[];
   goStep(1);
@@ -2457,9 +2423,21 @@ function renderHistory() {
   // Show count in a small header bar
   const hdr=document.createElement('div');
   hdr.style='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px';
-  hdr.innerHTML=`<span style="font-size:12px;color:var(--muted)">${filtered.length} equipment session${filtered.length!==1?'s':''} · ${rows.filter(r=>sev?r.severity===sev:true).length} point readings</span>
+  hdr.innerHTML=`<span style="font-size:12px;color:var(--muted)">${filtered.length} equipment session${filtered.length!==1?'s':''} · ${rows.filter(r=>sev?r.severity===sev:true).length} readings</span>
     <span style="font-size:11px;color:var(--muted)">Click equipment name to view trend</span>`;
   container.appendChild(hdr);
+
+  // PERF: precompute per-equipment distinct reportId/date counts ONCE (O(n)) instead of
+  // re-scanning the entire READINGS array inside the per-session loop below (was O(n*m)
+  // and the main cause of History tab slowness with large datasets).
+  const equipDistinctKeyCount={};
+  READINGS.forEach(r=>{
+    if(!r.equipment) return;
+    const k=r.equipment;
+    let set=equipDistinctKeyCount[k];
+    if(!set){ set=new Set(); equipDistinctKeyCount[k]=set; }
+    set.add(r.reportId||r.date);
+  });
 
   filtered.slice(0,100).forEach(session=>{
     const os=worstSev(session.rows.map(r=>r.severity));
@@ -2476,8 +2454,8 @@ function renderHistory() {
     const paramUnits={'H_Vel':'mm/s','V_Vel':'mm/s','A_Vel':'mm/s','Acc':'g','H_Dis':'µm','V_Dis':'µm','A_Dis':'µm'};
     const activeCols=paramKeys.filter(k=>session.rows.some(r=>r[k]!==undefined&&r[k]!==''));
 
-    // Check if equipment has multi-date history for trend button
-    const hasMultiDate=[...new Set(READINGS.filter(r=>r.equipment===session.equipment).map(r=>r.reportId||r.date))].length>1;
+    // Check if equipment has multi-date history for trend button (now O(1) lookup)
+    const hasMultiDate=(equipDistinctKeyCount[session.equipment]?.size||0)>1;
 
     const sessionKey = session.reportId ? session.reportId : (session.date + '||' + session.equipment);
     const safeDate  = session.date.replace(/'/g, "\\'");
@@ -2921,6 +2899,11 @@ async function exportHistoryExcel() {
 
   if(!filtered.length){ alert('No data in the selected range.'); return; }
 
+  // PERF: O(1) equipment lookups instead of MASTER.find() per session (export is uncapped,
+  // unlike the on-screen History view, so this can run over thousands of sessions).
+  const masterByName = {};
+  MASTER.forEach(m => { masterByName[m.name] = m; });
+
   // ============= ExcelJS formatted workbook =============
   const wb = new ExcelJS.Workbook();
   wb.creator='VibeMon'; wb.created=new Date();
@@ -2964,9 +2947,9 @@ async function exportHistoryExcel() {
   ws.getRow(2).height=20;
 
   // KPI strip (row 4)
-  const kpiLabels=['Sessions','Point readings','Normal','Alarm','Alert','Critical'];
-  const kpiValues=[filtered.length,totalReadings,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL];
-  const kpiColors=[BRAND,BRAND,SEV_FILL.NORMAL,SEV_FILL.ALARM,SEV_FILL.ALERT,SEV_FILL.CRITICAL];
+  const kpiLabels=['Sessions','Normal','Alarm','Alert','Critical'];
+  const kpiValues=[filtered.length,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL];
+  const kpiColors=[BRAND,SEV_FILL.NORMAL,SEV_FILL.ALARM,SEV_FILL.ALERT,SEV_FILL.CRITICAL];
   kpiLabels.forEach((lbl,i)=>{
     const c1=ws.getCell(4,i+1); c1.value=lbl;
     c1.font={bold:true,size:9,color:{argb:'FFFFFFFF'}};
@@ -2979,11 +2962,10 @@ async function exportHistoryExcel() {
     c2.alignment={horizontal:'center',vertical:'middle'};
     c2.border=allBorder;
   });
-  ws.getCell(4,7).value=''; ws.getCell(4,8).value='';
   ws.getRow(5).height=22;
 
   // Table header (row 6)
-  const headers=['Date','Equipment','Unit','Area','Overall Severity','Inspector','# Points','Recommendations'];
+  const headers=['Date','Equipment','Unit','Area','Overall Severity','Inspector','Recommendations'];
   const hdrRow=ws.getRow(6);
   headers.forEach((h,i)=>{
     const c=hdrRow.getCell(i+1); c.value=h;
@@ -2998,11 +2980,11 @@ async function exportHistoryExcel() {
   filtered.forEach((s,idx)=>{
     const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
     const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-    const r=ws.addRow([s.date,s.equipment,s.unit,s.area,os,s.inspector||'',s.rows.length,allRecs]);
+    const r=ws.addRow([s.date,s.equipment,s.unit,s.area,os,s.inspector||'',allRecs]);
     const zebra = idx%2===0 ? 'FFFFFFFF' : 'FFF9FAFB';
     r.eachCell({includeEmpty:true},(cell,col)=>{
       cell.border=allBorder;
-      cell.alignment={vertical:'middle',wrapText:true,horizontal:(col===2||col===8)?'left':'center'};
+      cell.alignment={vertical:'middle',wrapText:true,horizontal:(col===2||col===7)?'left':'center'};
       cell.font={size:10};
       cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:zebra}};
     });
@@ -3012,7 +2994,7 @@ async function exportHistoryExcel() {
     r.getCell(2).font={size:10,bold:true};
   });
 
-  ws.autoFilter={from:{row:6,column:1},to:{row:6,column:8}};
+  ws.autoFilter={from:{row:6,column:1},to:{row:6,column:7}};
 
   // ── Sheet 2: Detailed Readings ──
   const ws2 = wb.addWorksheet('Detailed Readings',{views:[{state:'frozen',ySplit:2}]});
@@ -3097,7 +3079,7 @@ async function exportHistoryExcel() {
     const nPts = s.rows.length;
     const allRecs = [...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
     const os = worstSev(s.rows.map(r=>r.severity))||'NORMAL';
-    const paramStr = (MASTER.find(m=>m.name===s.equipment)||{params:['H Vel','V Vel','A Vel','Acc']}).params.join(', ');
+    const paramStr = (masterByName[s.equipment]||{params:['H Vel','V Vel','A Vel','Acc']}).params.join(', ');
 
     s.rows.forEach((r,ri) => {
       const row = ws3.getRow(tRow + ri);
@@ -3154,288 +3136,56 @@ async function exportHistoryExcel() {
 }
 
 
-// ---- DASHBOARD ----
-function renderDashboard() {
-  const unit=document.getElementById('d-unit').value;
-  const area=document.getElementById('d-area').value;
-  const from=document.getElementById('d-from').value;
-  const to=document.getElementById('d-to').value;
-  const sev=document.getElementById('d-sev').value;
-  const user=document.getElementById('d-user')?.value||'';
+// ---- DASHBOARD — RELIABILITY COMMAND CENTER ----
 
-  // Populate user dropdown dynamically
-  const dUserSel=document.getElementById('d-user');
-  if(dUserSel){
-    const currentVal=dUserSel.value;
-    const users=[...new Set(READINGS.map(r=>r.username||r.inspector).filter(Boolean))].sort();
-    while(dUserSel.options.length>1) dUserSel.remove(1);
-    users.forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=u;dUserSel.add(o);});
-    if(users.includes(currentVal)) dUserSel.value=currentVal;
-  }
-
-  let rows=READINGS.filter(r=>(!unit||r.unit===unit)&&(!area||r.area===area)&&(!from||r.date>=from)&&(!to||r.date<=to)&&(!sev||r.severity===sev)&&(!user||(r.username===user||r.inspector===user)));
-
-  // Count by equipment (not by point)
-  const equips=new Set(rows.map(r=>r.equipment)).size;
-  const sevByEquip={};
-  rows.forEach(r=>{
-    if(!sevByEquip[r.equipment]||['CRITICAL','ALERT','ALARM'].indexOf(r.severity)>['CRITICAL','ALERT','ALARM'].indexOf(sevByEquip[r.equipment]))
-      sevByEquip[r.equipment]=r.severity;
-  });
-  const eqList=Object.entries(sevByEquip);
-  const en=eqList.filter(([,s])=>s==='NORMAL').length;
-  const eal=eqList.filter(([,s])=>s==='ALARM').length;
-  const eat=eqList.filter(([,s])=>s==='ALERT').length;
-  const ecr=eqList.filter(([,s])=>s==='CRITICAL').length;
-
-  document.getElementById('dash-kpis').innerHTML=`
-    <div class="kpi"><div class="kpi-val">${equips}</div><div class="kpi-lbl">Equipment covered</div></div>
-    <div class="kpi kpi-g"><div class="kpi-val">${en}</div><div class="kpi-lbl">Normal</div></div>
-    <div class="kpi kpi-a"><div class="kpi-val">${eal}</div><div class="kpi-lbl">Alarm</div></div>
-    <div class="kpi kpi-at"><div class="kpi-val">${eat}</div><div class="kpi-lbl">Alert</div></div>
-    <div class="kpi kpi-r"><div class="kpi-val">${ecr}</div><div class="kpi-lbl">Critical</div></div>
-    <div class="kpi"><div class="kpi-val">${rows.length}</div><div class="kpi-lbl">Total point readings</div></div>`;
-
-  // Area-wise
-  const areaMap={};
-  Object.entries(sevByEquip).forEach(([eq,sev])=>{
-    const eqObj=MASTER.find(e=>e.name===eq);
-    const ar=eqObj?eqObj.area:'Unknown';
-    if(!areaMap[ar]) areaMap[ar]={n:0,al:0,at:0,cr:0};
-    if(sev==='CRITICAL') areaMap[ar].cr++;
-    else if(sev==='ALERT') areaMap[ar].at++;
-    else if(sev==='ALARM') areaMap[ar].al++;
-    else areaMap[ar].n++;
-  });
-  document.getElementById('dash-area').innerHTML=Object.entries(areaMap).map(([ar,v])=>{
-    const tot=v.n+v.al+v.at+v.cr;
-    const pn=tot?Math.round(v.n/tot*100):0,pal=tot?Math.round(v.al/tot*100):0,pat=tot?Math.round(v.at/tot*100):0,pcr=tot?Math.round(v.cr/tot*100):0;
-    return `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:12px;font-weight:600">${ar}</span><span style="font-size:11px;color:var(--muted)">${tot} equipment</span></div>
-      <div class="prog" style="display:flex;height:8px">
-        <div style="width:${pn}%;background:var(--green);height:100%"></div>
-        <div style="width:${pal}%;background:#D97706;height:100%"></div>
-        <div style="width:${pat}%;background:var(--orange);height:100%"></div>
-        <div style="width:${pcr}%;background:#DC2626;height:100%"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:3px;font-size:10px">
-        <span style="color:var(--green)">${v.n}N</span><span style="color:#D97706">${v.al}Al</span><span style="color:var(--orange)">${v.at}At</span><span style="color:#DC2626">${v.cr}Cr</span>
-      </div></div>`;
-  }).join('')||'<p style="color:var(--muted);font-size:12px">No readings in selected range.</p>';
-
-  // Critical list
-  const critList=Object.entries(sevByEquip).filter(([,s])=>s==='CRITICAL'||s==='ALERT'||s==='ALARM').sort((a,b)=>{
-    const r={CRITICAL:3,ALERT:2,ALARM:1};return (r[b[1]]||0)-(r[a[1]]||0);
-  }).slice(0,10);
-  document.getElementById('dash-critical').innerHTML=critList.map(([eq,sev])=>{
-    const eqObj=MASTER.find(e=>e.name===eq)||{unit:'',area:''};
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
-      <div><div style="font-size:12px;font-weight:600">${eq}</div><div style="font-size:10px;color:var(--muted)">${eqObj.unit} · ${eqObj.area}</div></div>
-      ${badgeHtml(sev)}</div>`;
-  }).join('')||'<p style="color:var(--muted);font-size:12px;padding:8px 0">No critical/alert equipment.</p>';
-
-  // Daily bar
-  const dailyMap={};
-  const today=new Date();
-  for(let i=29;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);dailyMap[d.toISOString().slice(0,10)]={n:0,al:0,at:0,cr:0};}
-  rows.forEach(r=>{if(dailyMap[r.date]){
-    if(r.severity==='CRITICAL')dailyMap[r.date].cr++;
-    else if(r.severity==='ALERT')dailyMap[r.date].at++;
-    else if(r.severity==='ALARM')dailyMap[r.date].al++;
-    else dailyMap[r.date].n++;
-  }});
-  const de=Object.entries(dailyMap);
-  const maxDay=Math.max(...de.map(([,v])=>v.n+v.al+v.at+v.cr),1);
-  document.getElementById('dash-daily').innerHTML=`
-    <div style="display:flex;align-items:flex-end;gap:2px;height:80px">
-      ${de.map(([dt,v])=>{
-        const tot=v.n+v.al+v.at+v.cr;
-        return `<div title="${dt}: ${tot}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:70px">
-          ${v.cr?`<div style="width:100%;height:${Math.round(v.cr/maxDay*70)}px;background:#DC2626;border-radius:1px 1px 0 0"></div>`:''}
-          ${v.at?`<div style="width:100%;height:${Math.round(v.at/maxDay*70)}px;background:var(--orange)"></div>`:''}
-          ${v.al?`<div style="width:100%;height:${Math.round(v.al/maxDay*70)}px;background:#D97706"></div>`:''}
-          ${v.n?`<div style="width:100%;height:${Math.round(v.n/maxDay*70)}px;background:var(--green);${!v.al&&!v.at&&!v.cr?'border-radius:1px 1px 0 0':''}"></div>`:''}
-          ${!tot?`<div style="width:100%;height:2px;background:var(--border)"></div>`:''}
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--hint)"><span>${de[0][0].slice(5)}</span><span>Today</span></div>
-    <div style="display:flex;gap:12px;margin-top:6px;font-size:11px">
-      <span style="color:var(--green)">■ Normal</span><span style="color:#D97706">■ Alarm</span><span style="color:var(--orange)">■ Alert</span><span style="color:#DC2626">■ Critical</span>
-    </div>`;
-
-  // Overdue
-  const latestByEquip={};
-  READINGS.forEach(r=>{if(!latestByEquip[r.equipment]||r.date>latestByEquip[r.equipment])latestByEquip[r.equipment]=r.date;});
-  const overdueBody=document.getElementById('dash-overdue-body'); overdueBody.innerHTML='';
-  MASTER.filter(e=>(!unit||e.unit===unit)&&(!area||e.area===area)).forEach(e=>{
-    const lastDate=latestByEquip[e.name]||null;
-    const days=lastDate?Math.floor((new Date()-new Date(lastDate))/86400000):null;
-    const overdue=days!==null&&days>e.frequency;
-    const dueToday=days!==null&&days===e.frequency;
-    const neverRead=days===null;
-    if(!overdue&&!dueToday&&!neverRead) return;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td data-label="Equipment" style="font-weight:600">${e.name}</td><td data-label="Unit">${e.unit}</td><td data-label="Area">${e.area}</td><td data-label="Frequency">${e.frequency}d</td><td data-label="Last Reading">${lastDate?fmtDateDisplay(lastDate):'Never'}</td>
-      <td data-label="Status">${neverRead?'<span class="badge badge-p">No reading</span>':overdue?`<span class="badge badge-ov">Overdue ${days-e.frequency}d</span>`:'<span class="badge badge-due">Due today</span>'}</td>`;
-    overdueBody.appendChild(tr);
-  });
+// Fault keyword detection from recommendations
+function detectFaultType(rec) {
+  if(!rec) return null;
+  const r = rec.toLowerCase();
+  if(r.includes('unbalanc') || r.includes('balanc') || r.includes('impeller')) return 'Unbalance';
+  if(r.includes('misalign') || r.includes('alignment') || r.includes('coupling')) return 'Misalignment';
+  if(r.includes('bearing') || r.includes('lubricate') || r.includes('lubrication')) return 'Bearing Defect';
+  if(r.includes('loose') || r.includes('looseness') || r.includes('baseplate') || r.includes('bolt') || r.includes('soft-foot')) return 'Looseness';
+  if(r.includes('resonan')) return 'Resonance';
+  if(r.includes('gear') || r.includes('gearbox')) return 'Gear Mesh';
+  if(r.includes('electrical') || r.includes('rotor bar') || r.includes('motor rotor')) return 'Electrical';
+  if(r.includes('cavitat')) return 'Cavitation';
+  return null;
 }
 
-// Dashboard export: ExcelJS formatted report matching history tab style
-async function exportDashboardReport() {
-  const unit=document.getElementById('d-unit').value;
-  const area=document.getElementById('d-area').value;
-  const from=document.getElementById('d-from').value;
-  const to=document.getElementById('d-to').value;
-  const sev=document.getElementById('d-sev').value;
-  const user=document.getElementById('d-user')?.value||'';
-
-  let rows=READINGS.filter(r=>
-    (!unit||r.unit===unit)&&(!area||r.area===area)&&
-    (!from||r.date>=from)&&(!to||r.date<=to)&&
-    (!sev||r.severity===sev)&&
-    (!user||(r.username===user||r.inspector===user))
-  ).sort((a,b)=>b.date.localeCompare(a.date)||a.equipment.localeCompare(b.equipment));
-
-  const sessionMap={};const _noidC2={};
-  rows.forEach(r=>{
-    let key;
-    if(r.reportId){key=r.reportId+'||'+r.equipment;}
-    else{const b=r.date+'||'+r.equipment+'||'+(r.inspector||r.username||'')+'||'+(r.createdOn||'');if(!_noidC2[b])_noidC2[b]=0;key=b||('_noid_'+(_noidC2[b]++));}
-    if(!sessionMap[key]) sessionMap[key]={date:r.date,equipment:r.equipment,unit:r.unit,area:r.area,inspector:r.inspector,rows:[],recs:r.recommendations||''};
-    sessionMap[key].rows.push(r);
-  });
-  const sessions=Object.values(sessionMap).sort((a,b)=>b.date.localeCompare(a.date));
-  const filtered=sev?sessions.filter(s=>worstSev(s.rows.map(r=>r.severity))===sev):sessions;
-
-  if(!filtered.length){ alert('No data in the selected range.'); return; }
-
-  const wb = new ExcelJS.Workbook();
-  wb.creator='VibeMon'; wb.created=new Date();
-
-  const SEV_FILL={NORMAL:'FF1E8449',ALARM:'FFD97706',ALERT:'FF9A3412',CRITICAL:'FFDC2626'};
-  const BRAND='FF1D4E8A';
-  const BRAND_SOFT='FFE6F1FB';
-  const thin={style:'thin',color:{argb:'FFCDD0D6'}};
-  const allBorder={top:thin,left:thin,bottom:thin,right:thin};
-
-  const totalReadings=filtered.reduce((s,x)=>s+x.rows.length,0);
-  const sevCounts={NORMAL:0,ALARM:0,ALERT:0,CRITICAL:0};
-  filtered.forEach(s=>{const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';sevCounts[os]=(sevCounts[os]||0)+1;});
-
-  // ── Sheet 1: Summary ──
-  const ws=wb.addWorksheet('Summary',{views:[{state:'frozen',ySplit:6}]});
-  ws.columns=[
-    {key:'date',width:12},{key:'equipment',width:32},{key:'unit',width:14},
-    {key:'area',width:14},{key:'sev',width:18},{key:'inspector',width:16},
-    {key:'pts',width:9},{key:'recs',width:60}
-  ];
-  ws.mergeCells('A1:H1');
-  const t=ws.getCell('A1');
-  t.value='VibeMon — Dashboard Report';
-  t.font={name:'Calibri',size:18,bold:true,color:{argb:'FFFFFFFF'}};
-  t.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
-  t.alignment={vertical:'middle',horizontal:'left',indent:1};
-  ws.getRow(1).height=30;
-
-  ws.mergeCells('A2:H2');
-  const sub=ws.getCell('A2');
-  sub.value=`Period: ${from||'—'} to ${to||'—'}    Unit: ${unit||'All'}    Area: ${area||'All'}    User: ${user||'All'}    Severity: ${sev||'All'}    Generated: ${new Date().toLocaleString()}`;
-  sub.font={name:'Calibri',size:10,italic:true,color:{argb:'FF374151'}};
-  sub.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND_SOFT}};
-  sub.alignment={vertical:'middle',horizontal:'left',indent:1};
-  ws.getRow(2).height=20;
-
-  const kpiLabels=['Sessions','Point readings','Normal','Alarm','Alert','Critical'];
-  const kpiValues=[filtered.length,totalReadings,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL];
-  const kpiColors=[BRAND,BRAND,SEV_FILL.NORMAL,SEV_FILL.ALARM,SEV_FILL.ALERT,SEV_FILL.CRITICAL];
-  ws.getRow(3).height=14;
-  const r4=ws.getRow(4); r4.height=28;
-  const r5=ws.getRow(5); r5.height=16;
-  for(let c=0;c<6;c++){
-    const lc=ws.getCell(4,c+1); lc.value=kpiValues[c];
-    lc.font={name:'Calibri',size:16,bold:true,color:{argb:'FFFFFFFF'}};
-    lc.fill={type:'pattern',pattern:'solid',fgColor:{argb:kpiColors[c]}};
-    lc.alignment={horizontal:'center',vertical:'middle'};
-    const sc=ws.getCell(5,c+1); sc.value=kpiLabels[c];
-    sc.font={name:'Calibri',size:9,color:{argb:'FF374151'}};
-    sc.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND_SOFT}};
-    sc.alignment={horizontal:'center'};
-  }
-  ws.getRow(6).height=6;
-
-  const hdr=ws.addRow(['Date','Equipment','Unit','Area','Overall Status','Inspector','# Pts','Recommendations']);
-  hdr.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}};
-  hdr.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
-  hdr.height=16;
-  hdr.eachCell(c=>{c.alignment={vertical:'middle',horizontal:'center'};c.border=allBorder;});
-
-  filtered.forEach((s,idx)=>{
-    const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
-    const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-    const dr=ws.addRow([s.date,s.equipment,s.unit,s.area,os,s.inspector,s.rows.length,allRecs]);
-    dr.height=15;
-    const fc=SEV_FILL[os]||SEV_FILL.NORMAL;
-    dr.getCell(5).font={bold:true,color:{argb:'FFFFFFFF'}};
-    dr.getCell(5).fill={type:'pattern',pattern:'solid',fgColor:{argb:fc}};
-    dr.getCell(5).alignment={horizontal:'center'};
-    const bg=idx%2===0?'FFFFFFFF':'FFF8FAFC';
-    [1,2,3,4,6,7,8].forEach(i=>{
-      dr.getCell(i).fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}};
-      dr.getCell(i).font={name:'Calibri',size:10};
-      dr.getCell(i).border=allBorder;
-    });
-    dr.getCell(5).border=allBorder;
-  });
-
-  // ── Sheet 2: Detailed Readings ──
-  const ws2=wb.addWorksheet('Detailed Readings',{views:[{state:'frozen',ySplit:3}]});
-  ws2.columns=[
-    {key:'date',width:12},{key:'equipment',width:30},{key:'unit',width:12},{key:'area',width:12},
-    {key:'inspector',width:14},{key:'sev',width:14},{key:'point',width:14},
-    {key:'hv',width:12},{key:'vv',width:12},{key:'av',width:12},{key:'acc',width:10},
-    {key:'hd',width:12},{key:'vd',width:12},{key:'ad',width:12},{key:'recs',width:50}
-  ];
-  ws2.mergeCells('A1:O1');
-  const t2=ws2.getCell('A1');
-  t2.value='VibeMon — Dashboard Detailed Readings';
-  t2.font={name:'Calibri',size:14,bold:true,color:{argb:'FFFFFFFF'}};
-  t2.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
-  t2.alignment={vertical:'middle',horizontal:'left',indent:1};
-  ws2.getRow(1).height=26;
-
-  ws2.mergeCells('A2:O2');
-  const sub2=ws2.getCell('A2');
-  sub2.value=sub.value;
-  sub2.font={name:'Calibri',size:10,italic:true,color:{argb:'FF374151'}};
-  sub2.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND_SOFT}};
-  sub2.alignment={vertical:'middle',horizontal:'left',indent:1};
-  ws2.getRow(2).height=18;
-
-  const h2=ws2.addRow(['Date','Equipment','Unit','Area','Inspector','Severity','Point','H Vel','V Vel','A Vel','Acc','H Dis','V Dis','A Dis','Recommendations']);
-  h2.font={name:'Calibri',size:10,bold:true,color:{argb:'FFFFFFFF'}};
-  h2.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
-  h2.height=16;
-  h2.eachCell(c=>{c.alignment={vertical:'middle',horizontal:'center'};c.border=allBorder;});
-
-  filtered.forEach(s=>{
-    const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
-    const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-    s.rows.forEach((r,ri)=>{
-      const dr2=ws2.addRow([s.date,s.equipment,s.unit,s.area,s.inspector,r.severity,r.point,r.H_Vel,r.V_Vel,r.A_Vel,r.Acc,r.H_Dis,r.V_Dis,r.A_Dis,ri===0?allRecs:'']);
-      dr2.height=14;
-      const sf=SEV_FILL[r.severity]||SEV_FILL.NORMAL;
-      dr2.getCell(6).font={bold:true,color:{argb:'FFFFFFFF'}};
-      dr2.getCell(6).fill={type:'pattern',pattern:'solid',fgColor:{argb:sf}};
-      dr2.getCell(6).alignment={horizontal:'center'};
-      dr2.eachCell(c=>{c.font=c.font||{name:'Calibri',size:10};c.border=allBorder;});
-    });
-  });
-
-  const buf=await wb.xlsx.writeBuffer();
-  _downloadExcelBuffer(buf, `VibeMon_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`);
+// Build savings estimates based on severity counts
+function calcSavings(critCount, alertCount, alarmCount) {
+  // Rough estimates per Indian thermal power plant standards
+  const breakdownCostPerEvent = 250000; // ₹2.5L average breakdown avoided
+  const plannedSavingPerEvent = 80000;  // ₹80K per planned shutdown avoidance
+  const breakdownsPrevented = Math.round(critCount * 0.7 + alertCount * 0.2);
+  const plannedAvoided = Math.round(alertCount * 0.4 + alarmCount * 0.2);
+  const totalSavings = breakdownsPrevented * breakdownCostPerEvent + plannedAvoided * plannedSavingPerEvent;
+  const cmCost = Math.round(totalSavings * 0.15); // ~15% of savings as CM cost
+  const roi = cmCost > 0 ? Math.round((totalSavings / cmCost) * 100) : 0;
+  return { breakdownsPrevented, plannedAvoided, totalSavings, cmCost, roi };
 }
+
+function fmtINR(n) {
+  if(n >= 10000000) return '₹' + (n/10000000).toFixed(1) + 'Cr';
+  if(n >= 100000) return '₹' + (n/100000).toFixed(1) + 'L';
+  if(n >= 1000) return '₹' + (n/1000).toFixed(0) + 'K';
+  return '₹' + n;
+}
+
+// Static success stories (legacy demo data — retained, not rendered; live stories come from the SUCCESS_STORIES sheet)
+const _LEGACY_DEMO_STORIES = [
+  {title:'PA Fan DE Bearing Failure Prevented', fault:'Bearing Defect', area:'Boiler', action:'Bearing replaced during planned shutdown', saved:180000, date:'2026-05-15', before:'H Vel: 8.4 mm/s (Alert)', after:'H Vel: 1.2 mm/s (Normal)', lesson:'Quarterly bearing lubrication schedule tightened.'},
+  {title:'ID Fan Imbalance Detected Early', fault:'Unbalance', area:'Boiler', action:'Fan blade cleaned & dynamic balancing done', saved:240000, date:'2026-04-22', before:'V Vel: 11.8 mm/s (Critical)', after:'V Vel: 2.1 mm/s (Normal)', lesson:'Erosion inspection added to monthly checklist.'},
+  {title:'Slurry Pump Misalignment — AHP', fault:'Misalignment', area:'AHP', action:'Coupling realigned, motor soft-foot corrected', saved:95000, date:'2026-04-08', before:'H Vel: 7.6 mm/s (Alert)', after:'H Vel: 1.8 mm/s (Normal)', lesson:'Alignment check mandatory after any motor change.'},
+  {title:'ESP Transformer Vibration Trend', fault:'Electrical', area:'ESP', action:'Rotor bars inspected; 2 broken bars replaced', saved:320000, date:'2026-03-30', before:'Acc: 2.8g (Critical)', after:'Acc: 0.4g (Normal)', lesson:'Baseline vibration signature stored for monthly compare.'},
+  {title:'Vacuum Pump Looseness — AHP', fault:'Looseness', area:'AHP', action:'Foundation bolts retorqued; anti-vibration pads replaced', saved:60000, date:'2026-03-12', before:'A Vel: 6.2 mm/s (Alarm)', after:'A Vel: 1.4 mm/s (Normal)', lesson:'Foundation inspection now part of quarterly PM.'},
+  {title:'BFP Resonance Detected at 1500 RPM', fault:'Resonance', area:'Boiler', action:'Operating speed shifted to 1650 RPM; support stiffened', saved:410000, date:'2026-02-18', before:'H Vel: 14.2 mm/s (Critical)', after:'H Vel: 2.6 mm/s (Normal)', lesson:'ODS study commissioned for critical pumps.'},
+  {title:'CHP Conveyor Drive Gearbox Issue', fault:'Gear Mesh', area:'CHP', action:'Gearbox oil changed; worn gear pair replaced in planned window', saved:175000, date:'2026-02-05', before:'Acc: 1.9g (Alert)', after:'Acc: 0.3g (Normal)', lesson:'Gearbox oil sampling added to 3-monthly schedule.'},
+];
+
+// Active fault filter for dashboard cross-filtering
+let _dashFaultFilter = null;
 
 // ====================== PDF REPORTS (History + Dashboard) ======================
 function _getJsPDF(){
@@ -3502,8 +3252,8 @@ function exportHistoryPDF(){
   sessions.forEach(s=>{ const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL'; sevCounts[os]=(sevCounts[os]||0)+1; });
   doc.autoTable({
     startY: 33,
-    head:[['Sessions','Point readings','Normal','Alarm','Alert','Critical']],
-    body:[[sessions.length,totalReadings,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL]],
+    head:[['Sessions','Normal','Alarm','Alert','Critical']],
+    body:[[sessions.length,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL]],
     theme:'grid',
     headStyles:{fillColor:[29,78,138],textColor:255,fontSize:9},
     bodyStyles:{fontSize:9,halign:'center'},
@@ -3573,119 +3323,6 @@ function exportHistoryPDF(){
   _pdfFooter(doc);
   _downloadPDF(doc, `VibeMon_History_${new Date().toISOString().slice(0,10)}.pdf`);
 }
-
-function exportDashboardPDF(){
-  const JsPDF = _getJsPDF(); if(!JsPDF) return;
-  const unit=document.getElementById('d-unit').value;
-  const area=document.getElementById('d-area').value;
-  const from=document.getElementById('d-from').value;
-  const to=document.getElementById('d-to').value;
-  const sev=document.getElementById('d-sev').value;
-  const user=document.getElementById('d-user')?.value||'';
-
-  let rows=READINGS.filter(r=>
-    (!unit||r.unit===unit)&&(!area||r.area===area)&&
-    (!from||r.date>=from)&&(!to||r.date<=to)&&(!sev||r.severity===sev)&&
-    (!user||(r.username===user||r.inspector===user))
-  ).sort((a,b)=>b.date.localeCompare(a.date)||a.equipment.localeCompare(b.equipment));
-  if(!rows.length){ alert('No data in the selected range.'); return; }
-
-  // Build sessions (same as history)
-  const sessionMap={};const _noidC4={};
-  rows.forEach(r=>{
-    let key;
-    if(r.reportId){key=r.reportId+'||'+r.equipment;}
-    else{const b=r.date+'||'+r.equipment+'||'+(r.inspector||r.username||'')+'||'+(r.createdOn||'');if(!_noidC4[b])_noidC4[b]=0;key=b||('_noid_'+(_noidC4[b]++));}
-    if(!sessionMap[key]) sessionMap[key]={date:r.date,equipment:r.equipment,unit:r.unit,area:r.area,inspector:r.inspector,rows:[]};
-    sessionMap[key].rows.push(r);
-  });
-  let sessions=Object.values(sessionMap).sort((a,b)=>b.date.localeCompare(a.date));
-  if(sev) sessions=sessions.filter(s=>worstSev(s.rows.map(r=>r.severity))===sev);
-  if(!sessions.length){ alert('No sessions in the selected range.'); return; }
-
-  const totalReadings=sessions.reduce((s,x)=>s+x.rows.length,0);
-  const sevCounts={NORMAL:0,ALARM:0,ALERT:0,CRITICAL:0};
-  sessions.forEach(s=>{ const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL'; sevCounts[os]=(sevCounts[os]||0)+1; });
-
-  // Landscape, same as history
-  const doc = new JsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const filters=`Period: ${from||'—'} to ${to||'—'}  |  Unit: ${unit||'All'}  |  Area: ${area||'All'}  |  User: ${user||'All'}  |  Severity: ${sev||'All'}`;
-  _pdfHeader(doc,'Dashboard Report',filters);
-
-  // KPI strip (identical to history)
-  doc.autoTable({
-    startY:33,
-    head:[['Sessions','Point readings','Normal','Alarm','Alert','Critical']],
-    body:[[sessions.length,totalReadings,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL]],
-    theme:'grid',
-    headStyles:{fillColor:[29,78,138],textColor:255,fontSize:9},
-    bodyStyles:{fontSize:9,halign:'center'},
-    margin:{left:10,right:10}
-  });
-
-  // Sessions summary — same columns as history (Date, Equipment, Unit, Area, Inspector, Severity, Recommendations)
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY+5,
-    head:[['Date','Equipment','Unit','Area','Inspector','Severity','Recommendations']],
-    body: sessions.map(s=>{
-      const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
-      const recs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-      return [s.date,s.equipment,s.unit,s.area,s.inspector||'',os,recs];
-    }),
-    theme:'striped',
-    headStyles:{fillColor:[29,78,138],textColor:255,fontSize:9},
-    bodyStyles:{fontSize:8,valign:'top'},
-    columnStyles:{
-      0:{cellWidth:20,halign:'center'},
-      1:{cellWidth:40,halign:'left',fontStyle:'bold'},
-      2:{cellWidth:18,halign:'center'},
-      3:{cellWidth:18,halign:'center'},
-      4:{cellWidth:22,halign:'center'},
-      5:{cellWidth:22,halign:'center',fontStyle:'bold'},
-      6:{cellWidth:68}
-    },
-    didParseCell: function(data){
-      if(data.section==='body' && data.column.index===5){
-        const c=_SEV_COLOR[data.cell.raw]; if(c){ data.cell.styles.fillColor=c; data.cell.styles.textColor=255; }
-      }
-    },
-    margin:{left:10,right:10}
-  });
-
-  // Detailed readings page — grouped by session, Overall Severity once per equipment (same as history)
-  doc.addPage();
-  _pdfHeader(doc,'Dashboard — Detailed Readings',filters);
-  const detBody=[];
-  sessions.forEach(s=>{
-    const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
-    s.rows.forEach((r,ri)=>{
-      detBody.push([
-        ri===0?s.date:'', ri===0?s.equipment:'', ri===0?os:'',
-        r.point, r.H_Vel||'-', r.V_Vel||'-', r.A_Vel||'-',
-        r.Acc||'-', r.H_Dis||'-', r.V_Dis||'-', r.A_Dis||'-'
-      ]);
-    });
-  });
-  doc.autoTable({
-    startY:33,
-    head:[['Date','Equipment','Overall Severity','Point','H Vel','V Vel','A Vel','Acc','H Dis','V Dis','A Dis']],
-    body: detBody,
-    theme:'grid',
-    headStyles:{fillColor:[29,78,138],textColor:255,fontSize:8},
-    bodyStyles:{fontSize:7,halign:'center'},
-    columnStyles:{0:{cellWidth:18},1:{cellWidth:36,halign:'left'},2:{cellWidth:24,halign:'center',fontStyle:'bold'},3:{cellWidth:22,halign:'left'}},
-    didParseCell:function(data){
-      if(data.section==='body' && data.column.index===2 && data.cell.raw){
-        const c=_SEV_COLOR[data.cell.raw]; if(c){ data.cell.styles.fillColor=c; data.cell.styles.textColor=255; }
-      }
-    },
-    margin:{left:10,right:10}
-  });
-
-  _pdfFooter(doc);
-  _downloadPDF(doc, `VibeMon_Dashboard_${new Date().toISOString().slice(0,10)}.pdf`);
-}
-
 
 // ---- GOOGLE SHEETS ----
 function saveGSUrl(){
@@ -3898,7 +3535,7 @@ function applyAuth() {
   // If viewer happens to be on a hidden tab, send them to history
   if (AUTH.role !== 'admin') {
     const cur = document.querySelector('.screen.active');
-    if (cur && (cur.id === 'tab-gsheet' || (AUTH.role === 'viewer' && cur.id === 'tab-entry'))) showTab('history');
+    if (cur && (AUTH.role === 'viewer' && cur.id === 'tab-entry')) showTab('history');
   }
   // Viewer default landing = history
   if (AUTH.role === 'viewer') {
@@ -3911,8 +3548,8 @@ function applyAuth() {
   populateUserFilter();
   const today = new Date().toISOString().slice(0,10);
   const month = new Date(new Date().setDate(1)).toISOString().slice(0,10);
-  ['h-from','d-from'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=month;});
-  ['h-to','d-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
+  ['h-from'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=month;});
+  ['h-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
   const excFrom=document.getElementById('exc-from'); if(excFrom)excFrom.value=month;
   const excTo=document.getElementById('exc-to'); if(excTo)excTo.value=today;
 }
@@ -3947,6 +3584,102 @@ async function renderUserTable() {
 function createEditorUser() {
   const msg = document.getElementById('admin-msg');
   msg.innerHTML = '<div class="alert-box alert-info">ℹ️ To add users, go to your Google Sheet → USERS tab → add a row with: Username | Password | Role (ADMIN/EDITOR/VIEWER) | Name | Status (ACTIVE)</div>';
+}
+
+function uploadCustomSchedule() {
+  const fileInput = document.getElementById('admin-schedule-upload');
+  const msgEl = document.getElementById('admin-schedule-msg');
+  if (!fileInput || !fileInput.files.length) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:var(--red)">⚠️ Please select an Excel file first.</span>';
+    return;
+  }
+  
+  if (msgEl) msgEl.innerHTML = '<span style="color:var(--blue)">⏳ Parsing Excel file...</span>';
+  
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      const newSchedule = {};
+      const sheetMapping = {
+        'Precise': 'Precise',
+        'Chaitanya Bharthi': 'CB',
+        'Chaitanya Bharthi-A': 'CBA'
+      };
+      
+      let parsedSheetsCount = 0;
+      
+      workbook.SheetNames.forEach(sheetName => {
+        const teamKey = sheetMapping[sheetName.trim()];
+        if (!teamKey) return;
+        
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        const teamSchedule = {};
+        let currentWD = null;
+        
+        rows.forEach(row => {
+          if (!row || !row.length) return;
+          const firstCell = String(row[0] || '').trim();
+          
+          const wdMatch = firstCell.match(/WORKING\s+DAY\s+(\d+)/i);
+          if (wdMatch) {
+            currentWD = parseInt(wdMatch[1], 10);
+            teamSchedule[currentWD] = [];
+            return;
+          }
+          
+          if (currentWD !== null) {
+            const idx = parseInt(row[0], 10);
+            if (!isNaN(idx) && row[4]) {
+              teamSchedule[currentWD].push({
+                n: String(row[4]).trim(),
+                u: row[2] ? String(row[2]).trim() : '',
+                a: row[3] ? String(row[3]).trim() : '',
+                f: row[7] ? String(row[7]).trim() : '',
+                l: row[8] ? String(row[8]).trim() : '',
+                r: row[9] ? String(row[9]).trim() : ''
+              });
+            }
+          }
+        });
+        
+        newSchedule[teamKey] = teamSchedule;
+        parsedSheetsCount++;
+      });
+      
+      if (parsedSheetsCount === 0) {
+        if (msgEl) msgEl.innerHTML = '<span style="color:var(--red)">⚠️ Error: Could not find sheets named \'Precise\', \'Chaitanya Bharthi\', or \'Chaitanya Bharthi-A\'.</span>';
+        return;
+      }
+      
+      localStorage.setItem(VIBE_SCHEDULE_CACHE_KEY, JSON.stringify(newSchedule));
+      if (msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✅ Successfully loaded schedule! Found ${parsedSheetsCount} teams. Reloading page...</span><br><small style="color:var(--muted)">Note: this is a local override only. To update the schedule for everyone, edit the "VIBE_SCHEDULE" Google Sheet tab instead.</small>`;
+      
+      setTimeout(() => {
+        location.reload();
+      }, 1500);
+      
+    } catch(err) {
+      console.error(err);
+      if (msgEl) msgEl.innerHTML = `<span style="color:var(--red)">⚠️ Error parsing file: ${err.message}</span>`;
+    }
+  };
+  
+  reader.readAsArrayBuffer(file);
+}
+
+function resetCustomSchedule() {
+  if (confirm("Are you sure you want to clear any local schedule override and re-sync from the Google Sheet?")) {
+    localStorage.removeItem(VIBE_SCHEDULE_CACHE_KEY);
+    alert("Local override cleared. Reloading page (schedule will re-sync from Google Sheet)...");
+    location.reload();
+  }
 }
 
 function deleteUser(idx) {
@@ -3990,6 +3723,7 @@ function renderEditModal() {
   const paramKeys = ['H_Vel','V_Vel','A_Vel','Acc','H_Dis','V_Dis','A_Dis'];
   const paramLabels = { H_Vel:'H Vel (mm/s)', V_Vel:'V Vel (mm/s)', A_Vel:'A Vel (mm/s)', Acc:'Acc (g)', H_Dis:'H Dis (µm)', V_Dis:'V Dis (µm)', A_Dis:'A Dis (µm)' };
   const currentSev = worstSev(rows.map(r => r.severity)) || 'NORMAL';
+  const currentDept = rows[0]?.responsibleDept || '';
   // Date + Status header row (editable for editor/admin only)
   let html = `<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:8px">
     <div class="fg">
@@ -4008,6 +3742,13 @@ function renderEditModal() {
         <option value="ALARM"    ${currentSev==='ALARM'   ?'selected':''} style="color:#D97706">⚠️ ALARM</option>
         <option value="ALERT"    ${currentSev==='ALERT'   ?'selected':''} style="color:#EA580C">🔶 ALERT</option>
         <option value="CRITICAL" ${currentSev==='CRITICAL'?'selected':''} style="color:#DC2626">🚨 CRITICAL</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>RESPONSIBLE DEPT</label>
+      <select id="edit-resp-dept" style="padding:7px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:#fff">
+        <option value="">— Select Dept —</option>
+        ${DEPTS_LIST.map(d => `<option value="${d}" ${currentDept===d?'selected':''}>${d}</option>`).join('')}
       </select>
     </div>
   </div>`;
@@ -4058,10 +3799,12 @@ async function saveEditReport() {
   const remarksField = document.getElementById('edit-remarks-field');
   const sevField = document.getElementById('edit-sev-override');
   const dateField = document.getElementById('edit-date-field');
+  const deptField = document.getElementById('edit-resp-dept');
   const newRecs     = recsField    ? recsField.value.trim()    : '';
   const newRemarks  = remarksField ? remarksField.value.trim() : '';
   const sevOverride = sevField     ? sevField.value            : '';
   const newDate     = dateField    ? (dateField.value || origDate) : origDate;
+  const newDept     = deptField    ? deptField.value           : '';
 
   // Recalculate severity for each point
   const updatedRows = rows.map(r => {
@@ -4072,7 +3815,7 @@ async function saveEditReport() {
       .concat(['H_Dis','V_Dis','A_Dis'].map(k => getSev(vals[k],'dis',equipment)));
     const autoSev = worstSev(sevs.filter(Boolean)) || 'NORMAL';
     const sev = sevOverride || autoSev;
-    return { ...r, ...vals, date: newDate, severity: sev, recommendations: newRecs, remarks: newRemarks };
+    return { ...r, ...vals, date: newDate, severity: sev, recommendations: newRecs, remarks: newRemarks, responsibleDept: newDept };
   });
 
   // Update READINGS in memory — use reportId if available, else fall back to date+equipment
@@ -4097,6 +3840,7 @@ async function saveEditReport() {
         date: newDate,
         recommendation: newRecs,   // field name Apps Script expects
         remarks: newRemarks,
+        responsibleDept: newDept,
         readings: updatedRows.map(r => ({
           point: r.point,
           H_Vel: r.H_Vel, V_Vel: r.V_Vel, A_Vel: r.A_Vel, Acc: r.Acc,
@@ -4112,7 +3856,8 @@ async function saveEditReport() {
           date: r.date, equipment: r.equipment, unit: r.unit || '', area: r.area || '',
           point: r.point, H_Vel: r.H_Vel, V_Vel: r.V_Vel, A_Vel: r.A_Vel, Acc: r.Acc,
           H_Dis: r.H_Dis, V_Dis: r.V_Dis, A_Dis: r.A_Dis, severity: r.severity,
-          inspector: r.inspector || '', recommendations: newRecs, recommendation: newRecs, remarks: newRemarks
+          inspector: r.inspector || '', recommendations: newRecs, recommendation: newRecs, remarks: newRemarks,
+          responsibleDept: newDept
         })),
         unit: rows[0]?.unit || ''
       };
@@ -4221,8 +3966,9 @@ function renderTemplateEquipList() {
   );
   const tbody = document.getElementById('tb-equip-body');
   tbody.innerHTML = '';
+  const lastReadingMap = buildLastReadingMap(); // PERF: one pass over READINGS, not per-equipment
   filtered.slice(0, 400).forEach(e => {
-    const last = getLastReading(e.name);
+    const last = lastReadingMap[e.name]||null;
     const isChecked = tbSelected.has(e.name);
     const tr = document.createElement('tr');
     if (isChecked) tr.classList.add('tb-row-selected');
@@ -4540,6 +4286,9 @@ function uploadBulkExcel(input) {
       const skipped = [];
       // Carry-forward logic for merged cells (Equipment, Date, Inspector, Recommendations)
       let lastEquip='', lastDate='', lastInspector='', lastRecs='', lastUnit='', lastArea='';
+      // PERF: O(1) equipment lookups instead of MASTER.find() per uploaded row
+      const masterByNameUL = {};
+      MASTER.forEach(m => { masterByNameUL[m.name] = m; });
 
       rawRows.forEach((row, idx) => {
         // Resolve carry-forward for merged cells
@@ -4561,7 +4310,7 @@ function uploadBulkExcel(input) {
         if (!equip || !pt) return; // empty row
         if (!date) { errors.push(`Row ${idx+2}: No date for ${equip} - ${pt}`); return; }
 
-        const eqObj = MASTER.find(m => m.name === equip);
+        const eqObj = masterByNameUL[equip];
         const resolvedUnit = unit || eqObj?.unit || '';
         const resolvedArea = area || eqObj?.area || '';
 
@@ -4605,12 +4354,19 @@ function uploadBulkExcel(input) {
       }
 
       // Assign Report IDs per session (date+equipment group), matching normal entry format
+      // PERF: precompute existing reportIds per date ONCE instead of re-scanning READINGS
+      // for every new session being imported (uploads can contain many sessions/dates).
+      const existingIdsByDate = {};
+      READINGS.forEach(x => {
+        if (!x.date || !x.reportId) return;
+        (existingIdsByDate[x.date] = existingIdsByDate[x.date] || new Set()).add(x.reportId);
+      });
       const sessionIdMap = {};
       newRows.forEach(r => {
         const key = r.date + '||' + r.equipment;
         if (!sessionIdMap[key]) {
           const dateNum = r.date.replace(/-/g,'');
-          const existingIds = new Set(READINGS.filter(x=>x.date===r.date).map(x=>x.reportId).filter(Boolean));
+          const existingIds = existingIdsByDate[r.date] || new Set();
           // Count how many new sessions we've already assigned for this date
           const newSessionsForDate = Object.keys(sessionIdMap).filter(k=>k.startsWith(r.date+'||')).length;
           const seqNum = existingIds.size + newSessionsForDate + 1;
@@ -4676,13 +4432,9 @@ window.onload=()=>{
   if (!restored) continueAsViewer();
   const today=new Date().toISOString().slice(0,10);
   const month=new Date(new Date().setDate(1)).toISOString().slice(0,10);
-  ['h-from','d-from'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=month;});
-  ['h-to','d-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
+  ['h-from'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=month;});
+  ['h-to'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
   document.getElementById('readings-count-label') && (document.getElementById('readings-count-label').textContent='Syncing from Google Sheet...');
-  window.addEventListener('resize',()=>{
-    const d2=document.getElementById('dash-2col');
-    if(d2) d2.style.gridTemplateColumns=window.innerWidth<640?'1fr':'1fr 1fr';
-  });
 };
 
 
@@ -4789,9 +4541,9 @@ async function downloadUserReport(format) {
     sub.alignment={vertical:'middle',horizontal:'left',indent:1};
     ws.getRow(2).height=20;
 
-    const kpiLabels=['Sessions','Point readings','Normal','Alarm','Alert','Critical'];
-    const kpiValues=[sessions.length,totalReadings,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL];
-    const kpiColors=[BRAND,BRAND,SEV_FILL.NORMAL,SEV_FILL.ALARM,SEV_FILL.ALERT,SEV_FILL.CRITICAL];
+    const kpiLabels=['Sessions','Normal','Alarm','Alert','Critical'];
+    const kpiValues=[sessions.length,sevCounts.NORMAL,sevCounts.ALARM,sevCounts.ALERT,sevCounts.CRITICAL];
+    const kpiColors=[BRAND,SEV_FILL.NORMAL,SEV_FILL.ALARM,SEV_FILL.ALERT,SEV_FILL.CRITICAL];
     kpiLabels.forEach((lbl,i)=>{
       const c1=ws.getCell(4,i+1); c1.value=lbl;
       c1.font={bold:true,size:9,color:{argb:'FFFFFFFF'}};
@@ -4804,7 +4556,7 @@ async function downloadUserReport(format) {
     });
     ws.getRow(5).height=22;
 
-    const headers=['Date','Equipment','Unit','Area','Overall Severity','Inspector','# Points','Recommendations'];
+    const headers=['Date','Equipment','Unit','Area','Overall Severity','Inspector','Recommendations'];
     const hdrRow=ws.getRow(6);
     headers.forEach((h,i)=>{
       const c=hdrRow.getCell(i+1); c.value=h;
@@ -4817,11 +4569,11 @@ async function downloadUserReport(format) {
     sessions.forEach((s,idx)=>{
       const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
       const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-      const r=ws.addRow([s.date,s.equipment,s.unit,s.area,os,s.inspector||s.username||'',s.rows.length,allRecs]);
+      const r=ws.addRow([s.date,s.equipment,s.unit,s.area,os,s.inspector||s.username||'',allRecs]);
       const zebra=idx%2===0?'FFFFFFFF':'FFF9FAFB';
       r.eachCell({includeEmpty:true},(cell,col)=>{
         cell.border=allBorder;
-        cell.alignment={vertical:'middle',wrapText:true,horizontal:(col===2||col===8)?'left':'center'};
+        cell.alignment={vertical:'middle',wrapText:true,horizontal:(col===2||col===7)?'left':'center'};
         cell.font={size:10};
         cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:zebra}};
       });
@@ -4830,7 +4582,7 @@ async function downloadUserReport(format) {
       sevCell.font={bold:true,size:10,color:{argb:'FFFFFFFF'}};
       r.getCell(2).font={size:10,bold:true};
     });
-    ws.autoFilter={from:{row:6,column:1},to:{row:6,column:8}};
+    ws.autoFilter={from:{row:6,column:1},to:{row:6,column:7}};
 
     // ── Sheet 2: Detailed Readings ──
     const ws2=wb.addWorksheet('Detailed Readings',{views:[{state:'frozen',ySplit:2}]});
@@ -4923,11 +4675,11 @@ async function downloadUserReport(format) {
     // Summary table
     doc.autoTable({
       startY:33,
-      head:[['Date','Equipment','Unit','Area','Overall Severity','Inspector','# Points','Recommendations']],
+      head:[['Date','Equipment','Unit','Area','Overall Severity','Inspector','Recommendations']],
       body:sessions2.map(s=>{
         const os=worstSev(s.rows.map(r=>r.severity))||'NORMAL';
         const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))].join(' | ');
-        return [s.date,s.equipment,s.unit||'',s.area||'',os,s.inspector||'',s.rows.length,allRecs];
+        return [s.date,s.equipment,s.unit||'',s.area||'',os,s.inspector||'',allRecs];
       }),
       theme:'grid',
       headStyles:{fillColor:[29,78,138],textColor:255,fontSize:8,halign:'center'},
@@ -4939,8 +4691,7 @@ async function downloadUserReport(format) {
         3:{cellWidth:20,halign:'center'},
         4:{cellWidth:20,halign:'center',fontStyle:'bold'},
         5:{cellWidth:22,halign:'center'},
-        6:{cellWidth:12,halign:'center'},
-        7:{halign:'left'}
+        6:{halign:'left'}
       },
       didParseCell:function(data){
         if(data.section==='body' && data.column.index===4){
@@ -5238,7 +4989,7 @@ function getExcFilters() {
     area:   document.getElementById('exc-area')?.value   || '',
     equip:  document.getElementById('exc-equip')?.value  || '',
     sev:    document.getElementById('exc-sev')?.value    || '',
-    point:  document.getElementById('exc-point')?.value  || '',
+    dept:   document.getElementById('exc-dept')?.value   || '',
     user:   document.getElementById('exc-user')?.value   || '',
     q:     (document.getElementById('exc-search')?.value || '').toLowerCase()
   };
@@ -5246,17 +4997,50 @@ function getExcFilters() {
 
 function excFilteredRows() {
   const f = getExcFilters();
-  const excSevs = f.sev ? [f.sev] : ['ALARM','ALERT','CRITICAL'];
-  return READINGS.filter(r =>
-    excSevs.includes(r.severity) &&
+  const excSevs = f.sev ? [f.sev] : ['ALERT','CRITICAL'];
+
+  // Step 1: Apply non-severity filters to ALL readings to find the latest date per equipment
+  const baseFiltered = READINGS.filter(r =>
     (!f.from  || r.date >= f.from) &&
     (!f.to    || r.date <= f.to)   &&
     (!f.unit  || r.unit  === f.unit)  &&
     (!f.area  || r.area  === f.area)  &&
     (!f.equip || r.equipment === f.equip) &&
-    (!f.point || r.point === f.point) &&
     (!f.user  || r.username === f.user || r.inspector === f.user) &&
-    (!f.q     || r.equipment.toLowerCase().includes(f.q) || (r.point||'').toLowerCase().includes(f.q))
+    (!f.q     || r.equipment.toLowerCase().includes(f.q))
+  );
+
+  // Step 2: Find the latest date (and reportId if available) per equipment
+  const latestByEquip = {};
+  baseFiltered.forEach(r => {
+    const key = r.equipment;
+    const existing = latestByEquip[key];
+    if (!existing || r.date > existing.date ||
+        (r.date === existing.date && (r.createdOn||'') > (existing.createdOn||''))) {
+      latestByEquip[key] = { date: r.date, reportId: r.reportId||null, createdOn: r.createdOn||'' };
+    }
+  });
+
+  // Step 3: Keep only rows from the latest reading session per equipment,
+  // AND only if that session has at least one exception severity reading
+  const latestRows = baseFiltered.filter(r => {
+    const latest = latestByEquip[r.equipment];
+    if (!latest) return false;
+    if (r.reportId && latest.reportId) return r.reportId === latest.reportId;
+    return r.date === latest.date;
+  });
+
+  // Step 4: Determine which equipments have an exception in their latest session
+  const equipHasException = new Set();
+  latestRows.forEach(r => {
+    if (excSevs.includes(r.severity)) equipHasException.add(r.equipment);
+  });
+
+  // Step 5: Return only rows from equipments whose latest session has exceptions,
+  // filtered by severity (so we show only the exception-severity point rows)
+  return latestRows.filter(r =>
+    excSevs.includes(r.severity) && equipHasException.has(r.equipment) &&
+    (!f.dept || excDeptFor(r.equipment, r.responsibleDept) === f.dept)
   );
 }
 
@@ -5273,15 +5057,18 @@ function populateExcFilters() {
   // Equipment — from exception rows
   const excEl = document.getElementById('exc-equip'); if(!excEl) return;
   const curEq = excEl.value; while(excEl.options.length>1) excEl.remove(1);
-  const equips = [...new Set(READINGS.filter(r=>['ALARM','ALERT','CRITICAL'].includes(r.severity)).map(r=>r.equipment))].sort();
+  const equips = [...new Set(READINGS.filter(r=>['ALERT','CRITICAL'].includes(r.severity)).map(r=>r.equipment))].sort();
   equips.forEach(e=>excEl.add(new Option(e,e)));
   if(curEq) excEl.value=curEq;
-  // Points — from filtered rows
-  const ptEl = document.getElementById('exc-point'); if(!ptEl) return;
-  const curPt = ptEl.value; while(ptEl.options.length>1) ptEl.remove(1);
-  const pts = [...new Set(READINGS.filter(r=>['ALARM','ALERT','CRITICAL'].includes(r.severity)).map(r=>r.point).filter(Boolean))].sort();
-  pts.forEach(p=>ptEl.add(new Option(p,p)));
-  if(curPt) ptEl.value=curPt;
+  // Resp Dept — auto-fetched from readings (reading-entered dept, with legacy fallback)
+  const deptEl = document.getElementById('exc-dept'); if(!deptEl) return;
+  const curDept = deptEl.value; while(deptEl.options.length>1) deptEl.remove(1);
+  const usedDeptSet = new Set();
+  READINGS.filter(r=>['ALERT','CRITICAL'].includes(r.severity)).forEach(r=>{
+    const d = excDeptFor(r.equipment, r.responsibleDept); if(d) usedDeptSet.add(d);
+  });
+  [...usedDeptSet].sort().forEach(d=>deptEl.add(new Option(d,d)));
+  if(curDept) deptEl.value=curDept;
   // Users
   const usrEl = document.getElementById('exc-user'); if(!usrEl) return;
   const curUsr = usrEl.value; while(usrEl.options.length>1) usrEl.remove(1);
@@ -5290,9 +5077,15 @@ function populateExcFilters() {
   if(curUsr) usrEl.value=curUsr;
 }
 
+// ── Exceptions sub-tab switcher ──
+function switchExcTab(tab) {
+  // Field Engineer App: only schedule exceptions panel exists
+  renderPending();
+}
+
 function resetExcFilters() {
   ['exc-from','exc-to','exc-search'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['exc-unit','exc-area','exc-equip','exc-sev','exc-point','exc-user'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['exc-unit','exc-area','exc-equip','exc-sev','exc-dept','exc-user'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderExceptions();
 }
 
@@ -5329,7 +5122,7 @@ function renderExceptions() {
     container.innerHTML=`<div class="card"><div class="card-body" style="text-align:center;padding:32px;color:var(--muted)">
       <div style="font-size:32px;margin-bottom:10px">✅</div>
       <div style="font-weight:600;font-size:14px;margin-bottom:6px">No exceptions found</div>
-      <div style="font-size:12px">No Alarm, Alert or Critical readings match the current filters.</div>
+      <div style="font-size:12px">No Alarm, Alert or Critical readings match the current filters.<br><small style="color:var(--hint)">Only the latest reading per equipment is shown. If latest reading is Normal, it will not appear here.</small></div>
     </div></div>`;
     return;
   }
@@ -5355,7 +5148,8 @@ function renderExceptions() {
   // Summary table — Excel/sheet style, with merged (rowspan) cells per equipment session
   let html=`<div class="card">
     <div class="card-head">
-      <span class="card-title">🚨 Exception Readings <small style="font-weight:400;color:var(--muted)">${sessions.length} sessions, ${rows.length} point readings</small></span>
+      <span class="card-title">🚨 Exception Readings — Latest Only <small style="font-weight:400;color:var(--muted)">${sessions.length} equipment, ${rows.length} exception readings</small></span>
+      <span style="font-size:11px;color:var(--muted)">Showing latest reading per equipment only</span>
     </div>
     <div class="tbl-wrap">
       <table class="exc-table">
@@ -5364,6 +5158,7 @@ function renderExceptions() {
           <th>Point</th>
           ${paramKeys.map(k=>`<th>${paramLabels[k]}<span class="u">${paramUnits[k]}</span></th>`).join('')}
           <th>Recommendations</th>
+          <th>Responsible Dept<span class="u">Auto from reading</span></th>
         </tr></thead>
         <tbody>`;
 
@@ -5373,7 +5168,9 @@ function renderExceptions() {
     const grpCls = si%2===0 ? 'exc-grp-a' : 'exc-grp-b';
     const allRecs=[...new Set(s.rows.map(r=>r.recommendations||'').filter(Boolean).join('|').split('|').map(x=>x.trim()).filter(Boolean))];
     const recsHtml = allRecs.length ? allRecs.slice(0,3).join(' • ')+(allRecs.length>3?` +${allRecs.length-3} more`:'') : '<span style="color:var(--hint)">—</span>';
-    const equipSafe = s.equipment.replace(/'/g,"\\'");
+    const equipSafe = s.equipment.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const sessionDept = (s.rows.find(r=>r.responsibleDept)||{}).responsibleDept || '';
+    const currentDept = excDeptFor(s.equipment, sessionDept);
 
     s.rows.forEach((r,ri)=>{
       const ptSev=r.severity||'NORMAL';
@@ -5386,7 +5183,8 @@ function renderExceptions() {
           <td class="exc-area" rowspan="${rspan}">${s.area}</td>
           <td rowspan="${rspan}" style="padding:0;border:1px solid #D9E1E8"><div class="exc-sev-block" style="background:${sevBlockColor[os]||sevBlockColor.NORMAL}">${os}</div></td>`;
       }
-      html+=`<td class="exc-point">${ptEmoji} ${r.point}</td>`;
+      // Point column — shown on every row
+      html+=`<td class="exc-val" style="font-weight:600;white-space:nowrap;min-width:80px">${ptEmoji} ${r.point||'—'}</td>`;
       html+=paramKeys.map(k=>{
         const v=r[k];
         if(v===''||v===undefined||v===null) return '<td class="exc-val" style="color:var(--hint)">—</td>';
@@ -5397,6 +5195,9 @@ function renderExceptions() {
       }).join('');
       if(ri===0){
         html+=`<td class="exc-recs" rowspan="${rspan}">${recsHtml}</td>`;
+        html+=`<td rowspan="${rspan}" style="text-align:center;vertical-align:middle;min-width:110px;width:110px;border:1px solid #D9E1E8;white-space:normal;word-break:break-word">
+          ${currentDept ? `<span class="ss-dept-badge">${currentDept}</span>` : '<span style="color:var(--hint);font-size:11px">—</span>'}
+        </td>`;
       }
       html+=`</tr>`;
     });
@@ -5406,6 +5207,156 @@ function renderExceptions() {
     ${sessions.length>200?`<div style="padding:8px 14px;font-size:11px;color:var(--muted)">Showing 200 sessions maximum. Use filters to narrow results.</div>`:''}
   </div>`;
   container.innerHTML=html;
+}
+
+// ======= PENDING EQUIPMENT =======
+function populatePendingFilters() {
+  const units = [...new Set(MASTER.map(e=>e.unit))].sort();
+  const areas = [...new Set(MASTER.map(e=>e.area))].sort();
+  ['pend-unit'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value; while(el.options.length>1) el.remove(1);
+    units.forEach(u=>el.add(new Option(u,u))); if(cur) el.value=cur;
+  });
+  ['pend-area'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value; while(el.options.length>1) el.remove(1);
+    areas.forEach(a=>el.add(new Option(a,a))); if(cur) el.value=cur;
+  });
+}
+
+function getPendingRows() {
+  const window_ = parseInt(document.getElementById('pend-window')?.value||'1');
+  const unit = document.getElementById('pend-unit')?.value||'';
+  const area = document.getElementById('pend-area')?.value||'';
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Determine cutoff date based on window
+  let cutoff;
+  if(window_===99){
+    cutoff=null; // never or >3 months
+  } else {
+    cutoff=new Date(today);
+    cutoff.setMonth(cutoff.getMonth()-window_);
+    cutoff.setHours(0,0,0,0);
+  }
+  const threeMonthsAgo=new Date(today); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
+
+  // Latest reading date per equipment
+  const latestByEquip={};
+  READINGS.forEach(r=>{if(!latestByEquip[r.equipment]||r.date>latestByEquip[r.equipment])latestByEquip[r.equipment]=r.date;});
+
+  return MASTER.filter(e=>{
+    if(unit && e.unit!==unit) return false;
+    if(area && e.area!==area) return false;
+    const lastDateStr=latestByEquip[e.name]||null;
+    const lastDate=lastDateStr?new Date(lastDateStr):null;
+    if(lastDate) lastDate.setHours(0,0,0,0);
+    if(window_===99){
+      // Never read OR last reading >3 months ago
+      return !lastDate || lastDate<=threeMonthsAgo;
+    } else {
+      // No reading within the selected window
+      return !lastDate || lastDate<cutoff;
+    }
+  }).map(e=>{
+    const lastDateStr=latestByEquip[e.name]||null;
+    const lastDate=lastDateStr?new Date(lastDateStr):null;
+    if(lastDate) lastDate.setHours(0,0,0,0);
+    const daysSince=lastDate?Math.floor((today-lastDate)/86400000):null;
+    return {name:e.name,unit:e.unit,area:e.area,frequency:e.frequency,lastDate:lastDateStr,daysSince};
+  }).sort((a,b)=>{
+    // Sort: never first, then by days since desc
+    const da=a.daysSince===null?99999:a.daysSince;
+    const db=b.daysSince===null?99999:b.daysSince;
+    return db-da;
+  });
+}
+
+function renderPending() {
+  populatePendingFilters();
+  const rows=getPendingRows();
+  const tbody=document.getElementById('pend-body');
+  const emptyEl=document.getElementById('pend-empty');
+  const kpiEl=document.getElementById('pend-kpis');
+  if(!tbody) return;
+
+  // KPI strip
+  const neverCount=rows.filter(r=>r.lastDate===null).length;
+  const overdueCount=rows.filter(r=>r.daysSince!==null&&r.daysSince>90).length;
+  const recentCount=rows.length-neverCount-overdueCount;
+  if(kpiEl) kpiEl.innerHTML=`
+    <div class="kpi" style="border-left-color:var(--blue);flex:1;min-width:100px"><div class="kpi-val">${rows.length}</div><div class="kpi-lbl">Pending total</div></div>
+    <div class="kpi" style="border-left-color:#DC2626;flex:1;min-width:100px"><div class="kpi-val" style="color:#DC2626">${neverCount}</div><div class="kpi-lbl">Never read</div></div>
+    <div class="kpi" style="border-left-color:var(--orange);flex:1;min-width:100px"><div class="kpi-val" style="color:var(--orange)">${overdueCount}</div><div class="kpi-lbl">&gt;90 days overdue</div></div>
+    <div class="kpi" style="border-left-color:#D97706;flex:1;min-width:100px"><div class="kpi-val" style="color:#D97706">${recentCount}</div><div class="kpi-lbl">Within window</div></div>`;
+
+  tbody.innerHTML='';
+  if(!rows.length){
+    emptyEl.style.display='block';
+    return;
+  }
+  emptyEl.style.display='none';
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    const statusBadge=r.lastDate===null
+      ? '<span class="badge badge-cr" style="background:#FEE2E2;color:#991B1B">Never read</span>'
+      : r.daysSince>90
+        ? `<span class="badge badge-ov">Overdue ${r.daysSince}d</span>`
+        : `<span class="badge badge-al">Pending ${r.daysSince}d</span>`;
+    tr.innerHTML=`
+      <td style="font-weight:600">${r.name}</td>
+      <td>${r.unit}</td>
+      <td>${r.area}</td>
+      <td style="text-align:center">${r.frequency}</td>
+      <td style="text-align:center;color:var(--muted)">${r.lastDate?fmtDateDisplay(r.lastDate):'—'}</td>
+      <td style="text-align:center;font-weight:600;color:${r.daysSince===null?'#991B1B':r.daysSince>90?'#EA580C':'#D97706'}">${r.daysSince===null?'—':r.daysSince+'d'}</td>
+      <td>${statusBadge}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function exportPendingExcel() {
+  if(typeof ExcelJS==='undefined'){alert('Excel engine loading, please try in a moment.');return;}
+  const rows=getPendingRows();
+  if(!rows.length){alert('No pending equipment to export.');return;}
+  const window_=document.getElementById('pend-window')?.value||'1';
+  const windowLabel={'1':'This month','2':'Last 2 months','3':'Last 3 months','99':'More than 3 months / Never'}[window_]||'';
+  const unit=document.getElementById('pend-unit')?.value||'All';
+  const area=document.getElementById('pend-area')?.value||'All';
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Pending Equipment');
+  const BRAND='FF1D4E8A';
+  const thin={style:'thin',color:{argb:'FFE2E4E8'}};
+  const allBorder={top:thin,left:thin,bottom:thin,right:thin};
+  ws.columns=[{width:32},{width:14},{width:14},{width:16},{width:16},{width:14},{width:20}];
+  ws.mergeCells('A1:G1');
+  const t=ws.getCell('A1');
+  t.value=`VibeMon — Pending Equipment Report | Window: ${windowLabel} | Unit: ${unit} | Area: ${area}`;
+  t.font={name:'Calibri',size:12,bold:true,color:{argb:'FFFFFFFF'}};
+  t.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
+  t.alignment={vertical:'middle',horizontal:'left',indent:1};
+  ws.getRow(1).height=24;
+  const hdr=ws.addRow(['Equipment','Unit','Area','Frequency (days)','Last Reading','Days Since','Status']);
+  hdr.font={bold:true,size:10,color:{argb:'FFFFFFFF'}};
+  hdr.fill={type:'pattern',pattern:'solid',fgColor:{argb:BRAND}};
+  hdr.height=18;
+  hdr.eachCell(c=>{c.alignment={horizontal:'center',vertical:'middle'};c.border=allBorder;});
+  rows.forEach((r,idx)=>{
+    const status=r.lastDate===null?'Never read':r.daysSince>90?`Overdue ${r.daysSince}d`:`Pending ${r.daysSince}d`;
+    const row=ws.addRow([r.name,r.unit,r.area,r.frequency,r.lastDate||'—',r.daysSince===null?'—':r.daysSince,status]);
+    const bg=idx%2===0?'FFFFFFFF':'FFF4F5F7';
+    row.eachCell({includeEmpty:true},c=>{c.font={size:10};c.border=allBorder;c.fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}};c.alignment={vertical:'middle',horizontal:'center'};});
+    row.getCell(1).alignment={horizontal:'left',vertical:'middle'};
+    row.getCell(1).font={size:10,bold:true};
+    if(r.lastDate===null){row.getCell(7).font={bold:true,size:10,color:{argb:'FF991B1B'}};}
+    else if(r.daysSince>90){row.getCell(7).font={bold:true,size:10,color:{argb:'FF9A3412'}};}
+  });
+  ws.autoFilter={from:'A2',to:`G${ws.rowCount}`};
+  try{
+    const buf=await wb.xlsx.writeBuffer();
+    _downloadExcelBuffer(buf,`VibeMon_Pending_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){alert('Export failed: '+e.message);}
 }
 
 // Export exceptions to Excel
@@ -5424,12 +5375,12 @@ async function exportExceptionsExcel() {
   const ws=wb.addWorksheet('Exceptions',{views:[{state:'frozen',ySplit:2}]});
   ws.columns=[
     {key:'date',width:13},{key:'equipment',width:32},{key:'unit',width:14},{key:'area',width:14},
-    {key:'inspector',width:18},{key:'point',width:18},
+    {key:'inspector',width:18},
     {key:'H_Vel',width:12},{key:'V_Vel',width:12},{key:'A_Vel',width:12},{key:'Acc',width:10},
     {key:'H_Dis',width:12},{key:'V_Dis',width:12},{key:'A_Dis',width:12},
-    {key:'severity',width:18},{key:'recommendations',width:60}
+    {key:'severity',width:18},{key:'recommendations',width:50},{key:'resp_dept',width:14}
   ];
-  const headers=['Date','Equipment','Unit','Area','Inspector','Point','H Vel (mm/s)','V Vel (mm/s)','A Vel (mm/s)','Acc (g)','H Dis (µm)','V Dis (µm)','A Dis (µm)','Severity','Recommendations'];
+  const headers=['Date','Equipment','Unit','Area','Inspector','H Vel (mm/s)','V Vel (mm/s)','A Vel (mm/s)','Acc (g)','H Dis (µm)','V Dis (µm)','A Dis (µm)','Severity','Recommendations','Resp. Dept'];
   const hdr=ws.addRow(headers);
   hdr.eachCell(c=>{
     c.font={bold:true,color:{argb:'FFFFFFFF'},size:10};
@@ -5439,18 +5390,18 @@ async function exportExceptionsExcel() {
   });
   hdr.height=26;
 
-  rows.sort((a,b)=>b.date.localeCompare(a.date)||a.equipment.localeCompare(b.equipment)).forEach(r=>{
-    const row=ws.addRow([r.date,r.equipment,r.unit,r.area,r.inspector||r.username||'',r.point,
+    rows.sort((a,b)=>b.date.localeCompare(a.date)||a.equipment.localeCompare(b.equipment)).forEach(r=>{
+    const row=ws.addRow([r.date,r.equipment,r.unit,r.area,r.inspector||r.username||'',
       r.H_Vel||'',r.V_Vel||'',r.A_Vel||'',r.Acc||'',r.H_Dis||'',r.V_Dis||'',r.A_Dis||'',
-      r.severity,r.recommendations||'']);
+      r.severity,r.recommendations||'',excDeptFor(r.equipment, r.responsibleDept)]);
     const bg=SEV_FILL[r.severity]||'FFFFFFFF';
     const fc=SEV_FONT[r.severity]||'FF1A1D23';
     row.eachCell({includeEmpty:true},c=>{
       c.fill={type:'pattern',pattern:'solid',fgColor:{argb:bg}};
       c.border=allBorder;c.alignment={vertical:'middle',wrapText:true};c.font={size:10};
     });
-    // Severity cell bold
-    const sevCell=row.getCell(14);
+    // Severity cell bold (now col 13 instead of 14)
+    const sevCell=row.getCell(13);
     sevCell.font={bold:true,size:10,color:{argb:fc}};
   });
   ws.autoFilter={from:'A1',to:`O${ws.rowCount}`};
@@ -5468,34 +5419,34 @@ function exportExceptionsPDF() {
   if(!rows.length){alert('No exception data to export.');return;}
   const f=getExcFilters();
   const doc=new JsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const filters=`Period: ${f.from||'—'} to ${f.to||'—'}  |  Unit: ${f.unit||'All'}  |  Area: ${f.area||'All'}  |  Severity: ${f.sev||'Alarm+Alert+Critical'}`;
-  _pdfHeader(doc,'Exceptions Report — Alarm / Alert / Critical',filters);
+  const filters=`Period: ${f.from||'—'} to ${f.to||'—'}  |  Unit: ${f.unit||'All'}  |  Area: ${f.area||'All'}  |  Severity: ${f.sev||'Alert+Critical'}`;
+  _pdfHeader(doc,'Exceptions Report — Alert / Critical',filters);
   const cnt={ALARM:0,ALERT:0,CRITICAL:0};
   const equips=new Set();
   rows.forEach(r=>{if(cnt[r.severity]!==undefined)cnt[r.severity]++;equips.add(r.equipment);});
   doc.autoTable({
     startY:33,
-    head:[['Total readings','Alarm','Alert','Critical','Equipment affected']],
-    body:[[rows.length,cnt.ALARM,cnt.ALERT,cnt.CRITICAL,equips.size]],
+    head:[['Total readings','Alert','Critical','Equipment affected']],
+    body:[[rows.length,cnt.ALERT,cnt.CRITICAL,equips.size]],
     theme:'grid',headStyles:{fillColor:[29,78,138],textColor:255,fontSize:9},
     bodyStyles:{fontSize:9,halign:'center'},margin:{left:10,right:10}
   });
   const _SEV_COLOR2={ALARM:[215,119,6],ALERT:[154,52,18],CRITICAL:[153,27,27]};
   doc.autoTable({
     startY:doc.lastAutoTable.finalY+5,
-    head:[['Date','Equipment','Unit','Area','Inspector','Point','H Vel','V Vel','A Vel','Acc','Severity','Recommendations']],
+    head:[['Date','Equipment','Unit','Area','Inspector','H Vel','V Vel','A Vel','Acc','Severity','Recommendations']],
     body:rows.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>[
-      r.date,r.equipment,r.unit||'',r.area||'',r.inspector||'',r.point,
+      r.date,r.equipment,r.unit||'',r.area||'',r.inspector||'',
       r.H_Vel||'—',r.V_Vel||'—',r.A_Vel||'—',r.Acc||'—',
       r.severity,r.recommendations||'']),
     theme:'striped',
     headStyles:{fillColor:[29,78,138],textColor:255,fontSize:8},
     bodyStyles:{fontSize:7,halign:'center'},
-    columnStyles:{0:{cellWidth:18},1:{cellWidth:32,halign:'left'},2:{cellWidth:14},3:{cellWidth:14},
-      4:{cellWidth:18},5:{cellWidth:18,halign:'left'},6:{cellWidth:12},7:{cellWidth:12},
-      8:{cellWidth:12},9:{cellWidth:10},10:{cellWidth:18,fontStyle:'bold'},11:{halign:'left'}},
+    columnStyles:{0:{cellWidth:18},1:{cellWidth:36,halign:'left'},2:{cellWidth:14},3:{cellWidth:14},
+      4:{cellWidth:20},5:{cellWidth:12},6:{cellWidth:12},
+      7:{cellWidth:12},8:{cellWidth:10},9:{cellWidth:18,fontStyle:'bold'},10:{halign:'left'}},
     didParseCell:function(data){
-      if(data.section==='body'&&data.column.index===10){
+      if(data.section==='body'&&data.column.index===9){
         const c=_SEV_COLOR2[data.cell.raw];if(c){data.cell.styles.fillColor=c;data.cell.styles.textColor=255;}
       }
     },
@@ -5543,5 +5494,790 @@ document.getElementById('wa-modal').addEventListener('click', function(e) {
 
 
 </script>
+
+<script>
+/* ============ DAILY SCHEDULE MODULE ============ */
+// ============================================================
+// VIBE_SCHEDULE data now comes from the Google Sheet "VIBE_SCHEDULE" tab,
+// fetched at runtime via the Apps Script Web App (action=getSchedule).
+// No equipment/day/team data is hard-coded in this file anymore.
+// A tiny empty fallback keeps every existing VIBE_SCHEDULE[team][day]
+// reference in the app working even before the fetch completes.
+// ============================================================
+const DEFAULT_VIBE_SCHEDULE = { "Precise": {}, "CB": {}, "CBA": {} };
+// VIBE_SCHEDULE keeps the SAME object reference for the entire app lifetime so every
+// existing `VIBE_SCHEDULE[team][day]` lookup throughout the file keeps working unchanged.
+// Its contents are filled in-place (never reassigned) either from a cached copy in
+// localStorage (instant paint on reload) and then refreshed from the Google Sheet via
+// fetchVibeSchedule() during loadData() — same pattern as Equipment Master / Recommendations.
+const VIBE_SCHEDULE_CACHE_KEY = 'vibemon_schedule_cache_v1';
+const VIBE_SCHEDULE = (function(){
+  try {
+    const cached = localStorage.getItem(VIBE_SCHEDULE_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch(e) {}
+  return DEFAULT_VIBE_SCHEDULE;
+})();
+
+// Replace VIBE_SCHEDULE's contents in place (keep same object identity).
+function _setVibeScheduleData(newData) {
+  if (!newData || typeof newData !== 'object') return;
+  Object.keys(VIBE_SCHEDULE).forEach(k => delete VIBE_SCHEDULE[k]);
+  Object.keys(newData).forEach(k => { VIBE_SCHEDULE[k] = newData[k]; });
+  try { localStorage.setItem(VIBE_SCHEDULE_CACHE_KEY, JSON.stringify(VIBE_SCHEDULE)); } catch(e) {}
+}
+
+// Build VIBE_SCHEDULE[team][workingDay] = [{n,u,a,f,l,r}, ...] from flat sheet rows.
+// Expected row shape (from the "VIBE_SCHEDULE" Google Sheet tab):
+// { Team, WorkingDay, Equipment, Unit, Area, Frequency, Location, Rotation }
+// Normalize whatever the "Team" column contains (full name OR short code) to the
+// canonical keys the app uses everywhere: 'Precise' | 'CB' | 'CBA'. Unknown values
+// are passed through unchanged so nothing silently disappears.
+function _normTeamKey(raw){
+  const t = String(raw||'').trim();
+  if(!t) return '';
+  const u = t.toUpperCase().replace(/[^A-Z]/g,''); // strip spaces, hyphens, etc.
+  if(u==='PRECISE' || u==='PRECISEGROUP') return 'Precise';
+  if(u==='CBA' || u==='CHAITANYABHARTHIA' || u==='CHAITANYABHARTHIGROUPA') return 'CBA';
+  if(u==='CB' || u==='CHAITANYABHARTHI' || u==='CHAITANYABHARTHIGROUP') return 'CB';
+  return t; // unrecognised → keep as-is
+}
+
+function _buildScheduleFromRows(rows) {
+  const out = {};
+  rows.forEach(row => {
+    const team = _normTeamKey(row.Team || row.team || '');
+    const wd = String(row.WorkingDay || row.workingDay || row.workingday || '').trim();
+    if (!team || !wd) return;
+    if (!out[team]) out[team] = {};
+    if (!out[team][wd]) out[team][wd] = [];
+    out[team][wd].push({
+      n: String(row.Equipment || row.equipment || '').trim(),
+      u: String(row.Unit || row.unit || '').trim(),
+      a: String(row.Area || row.area || '').trim(),
+      f: String(row.Frequency || row.frequency || '').trim(),
+      l: String(row.Location || row.location || '').trim(),
+      r: String(row.Rotation || row.rotation || '').trim()
+    });
+  });
+  return out;
+}
+
+// Fetch schedule data from the Google Sheet (action=getSchedule) via the same
+// Apps Script Web App already used for Equipment Master / Recommendations / Readings.
+// Falls back silently to whatever is already cached in VIBE_SCHEDULE (cache or default)
+// on any failure, so the Daily Schedule tab never breaks even if offline.
+async function fetchVibeSchedule() {
+  const gsUrl = getGSUrl();
+  const diag = (msg, kind) => {
+    console[kind==='err'?'error':'log']('[VIBE_SCHEDULE]', msg);
+    const el = document.getElementById('vs-diag');
+    if (el) {
+      el.style.display = 'block';
+      el.style.background = kind==='err' ? '#FEE2E2' : (kind==='ok' ? '#DCFCE7' : '#FEF3C7');
+      el.style.color = kind==='err' ? '#991B1B' : (kind==='ok' ? '#166534' : '#92400E');
+      el.textContent = msg;
+    }
+  };
+  if (!gsUrl) { diag('No Google Sheet URL configured (Settings tab).', 'err'); return false; }
+  try {
+    const url = gsUrl + '?action=getSchedule&t=' + Date.now(); // cache-bust
+    console.log('[VIBE_SCHEDULE] fetching', url);
+    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+    const text = await resp.text();
+    const head = (text||'').slice(0, 300);
+    console.log('[VIBE_SCHEDULE] HTTP', resp.status, '| first 300 chars:', head);
+
+    let data;
+    try { data = JSON.parse(text); }
+    catch(parseErr) {
+      diag('GAS did not return JSON. Your doGet is NOT routing action=getSchedule. First chars: ' + head.slice(0,120), 'err');
+      return false;
+    }
+    if (data.status !== 'ok') {
+      diag('GAS error: ' + (data.msg || JSON.stringify(data)).slice(0,200), 'err');
+      return false;
+    }
+    if (!Array.isArray(data.rows) || data.rows.length === 0) {
+      diag('GAS returned 0 rows. Check the VIBE_SCHEDULE sheet tab name and that it has data below the header row.', 'err');
+      return false;
+    }
+    const built = _buildScheduleFromRows(data.rows);
+    const teams = Object.keys(built);
+    const totalDays = teams.reduce((s,t)=>s+Object.keys(built[t]).length, 0);
+    if (teams.length === 0) {
+      diag('Got '+data.rows.length+' rows but none had a recognisable Team column. Check column header is "Team".', 'err');
+      return false;
+    }
+    _setVibeScheduleData(built);
+    diag('✅ Loaded '+data.rows.length+' rows · teams: '+teams.join(', ')+' · day-buckets: '+totalDays, 'ok');
+    return true;
+  } catch(e) {
+    diag('Network/fetch error: ' + e.message, 'err');
+  }
+  return false;
+}
+
+const USER_TEAM_MAP = {
+  '4000361991': 'Precise',
+  '4000352155': 'CB',
+  '4000352156': 'CBA'
+};
+const TEAM_NAME = { 'Precise':'Precise Group', 'CB':'Chaitanya Bharthi Group', 'CBA':'Chaitanya Bharthi Group A', 'ALL':'All Groups' };
+const PERF_KEY = 'vibemon_monthly_perf_v1';
+
+function dsCurrentTeam(){
+  let A = null;
+  try { A = (typeof AUTH !== 'undefined') ? AUTH : null; } catch(e){}
+  if(!A){
+    try { A = JSON.parse(localStorage.getItem('vibromon_auth_v2')||'null'); } catch(e){}
+  }
+  const role = (A && A.role) || 'viewer';
+  if(role==='admin'){
+    const sel = document.getElementById('ds-team-admin') || document.getElementById('dp-team-admin');
+    const v = sel ? sel.value : 'auto';
+    if(v && v!=='auto') return v;
+    // admin default: Precise
+    return 'Precise';
+  }
+  const u = (A && A.username) || '';
+  return USER_TEAM_MAP[u] || USER_TEAM_MAP[String(u).trim()] || null;
+}
+
+function dsWorkingDaysOfMonth(year, month){
+  // month: 0-indexed. Returns array of Date objects (non-Sundays), max 23.
+  const days=[]; const last=new Date(year,month+1,0).getDate();
+  for(let d=1; d<=last; d++){
+    const dt=new Date(year,month,d);
+    if(dt.getDay()!==0){ days.push(dt); if(days.length>=23) break; }
+  }
+  return days;
+}
+function dsDateToWD(dt){
+  const wds = dsWorkingDaysOfMonth(dt.getFullYear(), dt.getMonth());
+  const ds = dt.toDateString();
+  const idx = wds.findIndex(d=>d.toDateString()===ds);
+  return idx>=0 ? idx+1 : null;
+}
+function dsWDDate(year, month, wd){
+  const wds = dsWorkingDaysOfMonth(year,month);
+  return wds[wd-1] || null;
+}
+function dsFmt(dt){ const p=n=>String(n).padStart(2,'0'); return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`; }
+
+// Count of DISTINCT reading dates for an equipment within a given month (any inspector / team),
+// optionally limited to on-or-before uptoStr (YYYY-MM-DD). Source of truth = READINGS (the database).
+function normalizeEquipName(name) {
+  if (!name) return '';
+  return String(name)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .trim();
+}
+
+// Safe accessor for the READINGS array. READINGS is declared with `let` at top level,
+// so it is NOT exposed as window.READINGS — must reference it by its lexical name.
+function dsReadingsArr(){
+  try { if (typeof READINGS !== 'undefined' && Array.isArray(READINGS)) return READINGS; } catch(e){}
+  try { if (window.READINGS && Array.isArray(window.READINGS)) return window.READINGS; } catch(e){}
+  return [];
+}
+
+function dsReadingDaysCount(equipName, y, m, uptoStr){
+  const mk = `${y}-${String(m+1).padStart(2,'0')}`;
+  const set = new Set();
+  const target = normalizeEquipName(equipName);
+  (dsReadingsArr()||[]).forEach(r => {
+    if(normalizeEquipName(r.equipment) !== target) return;
+    const ds = (r.date||'').slice(0,10);
+    if(ds.slice(0,7) !== mk) return;          // same year-month
+    if(uptoStr && ds > uptoStr) return;       // not in the future
+    set.add(ds);
+  });
+  return set.size;
+}
+
+// Build a completion map for a team's month. An equipment counts as done for a scheduled
+// occurrence if it was analysed ANY day that month by ANY inspector/team. Equipment scheduled
+// multiple times (e.g. fortnightly) needs that many distinct reading-days to be fully done.
+// Returns { 'WD|EQUIP': true, ... }.
+function dsMonthDone(team, y, m, uptoStr){
+  const wds = dsWorkingDaysOfMonth(y,m);
+  const occ = {}; // equip -> [wd, wd, ...]
+  wds.forEach((dt,i)=>{
+    const items = (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(i+1)]) || [];
+    items.forEach(it=>{ (occ[it.n] = occ[it.n] || []).push(i+1); });
+  });
+  // PERF: build a single {normalizedEquipName: Set(dates)} map for this month in ONE pass
+  // over READINGS, instead of calling dsReadingDaysCount() per scheduled equipment — which
+  // used to re-scan (and regex-normalize) the ENTIRE READINGS array once per equipment.
+  // This was the main cause of slow/laggy Daily Schedule and Pending Daily Schedule tabs.
+  const mk = `${y}-${String(m+1).padStart(2,'0')}`;
+  const readingsMap = {};
+  (dsReadingsArr()||[]).forEach(r=>{
+    if(!r.equipment || !r.date) return;
+    const ds = (r.date||'').slice(0,10);
+    if(ds.slice(0,7) !== mk) return;
+    if(uptoStr && ds > uptoStr) return;
+    const key = normalizeEquipName(r.equipment);
+    (readingsMap[key] = readingsMap[key] || new Set()).add(ds);
+  });
+  const done = {};
+  Object.keys(occ).forEach(eq=>{
+    const set = readingsMap[normalizeEquipName(eq)];
+    let reads = set ? set.size : 0;
+    occ[eq].slice().sort((a,b)=>a-b).forEach(wd=>{ if(reads>0){ done[wd+'|'+eq] = true; reads--; } });
+  });
+  return done;
+}
+
+// Back-compat: true if equipment analysed in dt's month (any inspector), up to today.
+function dsEquipDoneOn(team, dt, equipName){
+  const wd = dsDateToWD(dt);
+  if(!wd) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const map = dsMonthDone(team, dt.getFullYear(), dt.getMonth(), dsFmt(today));
+  return !!map[wd+'|'+equipName];
+}
+
+// Returns the scheduled equipment list for a given working day, merged across ALL teams
+// (deduped by equipment name) when team === 'ALL'; otherwise the single team's list.
+function dsItemsForTeamWD(team, wd){
+  if(team === 'ALL'){
+    const seen = {}; const merged = [];
+    Object.keys(VIBE_SCHEDULE).forEach(t=>{
+      const items = (VIBE_SCHEDULE[t] && VIBE_SCHEDULE[t][String(wd)]) || [];
+      items.forEach(it=>{
+        if(!it || !it.n) return;
+        const key = normalizeEquipName(it.n);
+        if(!seen[key]){ seen[key]=true; merged.push(it); }
+      });
+    });
+    return merged;
+  }
+  return (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(wd)]) || [];
+}
+
+// Returns the completion map for a month, merged across ALL teams when team === 'ALL'.
+function dsMonthDoneAny(team, y, m, uptoStr){
+  if(team === 'ALL'){
+    const merged = {};
+    Object.keys(VIBE_SCHEDULE).forEach(t=>{ Object.assign(merged, dsMonthDone(t,y,m,uptoStr)); });
+    return merged;
+  }
+  return dsMonthDone(team, y, m, uptoStr);
+}
+
+let DS_VIEW = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: null };
+
+// Keep the team filter on the 📅 Daily Schedule and ⏳ Pending Daily Schedule tabs
+// in lock-step: changing one mirrors the value to the other and re-renders both,
+// so switching tabs always shows the same group's data.
+async function reloadScheduleNow(){
+  const ok = await fetchVibeSchedule();
+  try { dsRender(); } catch(e){}
+  try { dpRender(); } catch(e){}
+  return ok;
+}
+
+function dsSyncTeamSelect(value){
+  ['ds-team-admin','dp-team-admin'].forEach(id=>{
+    const s = document.getElementById(id);
+    if(s && s.value !== value) s.value = value;
+  });
+  try { dsRender(); } catch(e){ console.error('dsRender (sync) failed:', e); }
+  try { dpRender(); } catch(e){ console.error('dpRender (sync) failed:', e); }
+}
+
+function dsRender(){
+  const team = dsCurrentTeam();
+  const userPill = document.getElementById('ds-user-pill');
+  const adminSel = document.getElementById('ds-team-admin');
+  if(adminSel) adminSel.style.display = (AUTH.role==='admin')?'inline-block':'none';
+  if(!team){
+    if(userPill) userPill.textContent = 'No group assigned — contact admin';
+    const cal = document.getElementById('ds-cal'); if(cal) cal.innerHTML='';
+    return;
+  }
+  if(userPill) userPill.textContent = TEAM_NAME[team] || team;
+  const y=DS_VIEW.y, m=DS_VIEW.m;
+  document.getElementById('ds-month-label').textContent =
+    new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const wds = dsWorkingDaysOfMonth(y,m);
+  const firstDow = new Date(y,m,1).getDay(); // 0=Sun
+  const last = new Date(y,m+1,0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  let doneMap = {};
+  try { doneMap = dsMonthDoneAny(team, y, m, dsFmt(today)); } catch(e){ console.error('dsMonthDoneAny failed:', e); }
+  window.DS_DONE = doneMap;
+  const cal = document.getElementById('ds-cal');
+  let html='';
+  ['S','M','T','W','T','F','S'].forEach(d=> html+=`<div class="dow">${d}</div>`);
+  for(let i=0;i<firstDow;i++) html+='<div class="ds-day empty"></div>';
+  for(let d=1; d<=last; d++){
+    const dt=new Date(y,m,d); dt.setHours(0,0,0,0);
+    const isSun=dt.getDay()===0;
+    const wdIdx = wds.findIndex(x=>x.getDate()===d);
+    const wd = wdIdx>=0?wdIdx+1:null;
+    let cls='ds-day';
+    if(isSun) cls+=' sunday';
+    if(dt.getTime()===today.getTime()) cls+=' today';
+    let prog=0;
+    if(wd){
+      const items = dsItemsForTeamWD(team, wd);
+      if(items.length){
+      const done = items.filter(it=>doneMap[wd+'|'+it.n]).length;
+      const total = items.length;
+      prog = total?Math.round(done/total*100):0;
+      if(dt < today){
+        if(done===0) cls+=' pending';
+        else if(done<total) cls+=' partial';
+        else cls+=' done';
+      } else if(dt.getTime()===today.getTime()){
+        if(done===total && total>0) cls+=' done';
+        else if(done>0) cls+=' partial';
+      }
+      }
+    }
+    if(DS_VIEW.sel===d) cls+=' selected';
+    const items = wd ? dsItemsForTeamWD(team, wd) : [];
+    html += `<div class="${cls}" onclick="${isSun?'':'dsSelectDay('+d+')'}">
+      <div class="dnum">${d}</div>
+      ${isSun?'<div class="dwd">Off</div>':(wd?`<div class="dwd">WD${wd} · ${items.length}</div>`:'')}
+      ${(prog>0 && !isSun)?`<div class="dprog"><i style="width:${prog}%"></i></div>`:''}
+    </div>`;
+  }
+  cal.innerHTML = html;
+  // Auto-select today if same month
+  if(today.getFullYear()===y && today.getMonth()===m && !DS_VIEW.sel) DS_VIEW.sel = today.getDate();
+  try {
+    if(DS_VIEW.sel) dsSelectDay(DS_VIEW.sel, true); else { document.getElementById('ds-sel-empty').style.display='block'; document.getElementById('ds-sel-wrap').style.display='none'; }
+  } catch(e){ console.error('dsSelectDay failed:', e); }
+  try { dsRenderPerf(); } catch(e){ console.error('dsRenderPerf failed:', e); }
+}
+function dsSelectDay(d, keep){
+  DS_VIEW.sel = d;
+  const team = dsCurrentTeam(); if(!team) return;
+  const dt = new Date(DS_VIEW.y, DS_VIEW.m, d); dt.setHours(0,0,0,0);
+  document.querySelectorAll('#ds-cal .ds-day').forEach(el=>el.classList.remove('selected'));
+  // re-mark
+  const cells = document.querySelectorAll('#ds-cal .ds-day:not(.empty)');
+  // simpler: re-render? avoid recursion
+  if(!keep) dsRender();
+  const isSun = dt.getDay()===0;
+  const wd = dsDateToWD(dt);
+  const items = wd ? dsItemsForTeamWD(team, wd) : [];
+  document.getElementById('ds-sel-title').textContent =
+    dt.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short',year:'numeric'}) +
+    (wd?` — Working Day ${wd}`:(isSun?' — Sunday (Off)':''));
+  document.getElementById('ds-sel-meta').textContent = items.length?`${items.length} equipment scheduled`:'';
+  if(!items.length){
+    document.getElementById('ds-sel-empty').style.display='block';
+    document.getElementById('ds-sel-empty').textContent = isSun?'Sunday — no schedule.':'No schedule for this day.';
+    document.getElementById('ds-sel-wrap').style.display='none'; return;
+  }
+  document.getElementById('ds-sel-empty').style.display='none';
+  document.getElementById('ds-sel-wrap').style.display='';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tbody = document.getElementById('ds-sel-body');
+  const dmap = window.DS_DONE || dsMonthDoneAny(team, DS_VIEW.y, DS_VIEW.m, dsFmt(today));
+  tbody.innerHTML = items.map((it,i)=>{
+    const done = !!dmap[wd+'|'+it.n];
+    const future = dt > today;
+    const status = done ? '<span style="color:var(--green);font-weight:600">✓ Done</span>' :
+      future ? '<span style="color:var(--muted)">Upcoming</span>' :
+      (dt.getTime()===today.getTime() ? '<span style="color:var(--amber);font-weight:600">Pending today</span>' :
+        '<span style="color:var(--red);font-weight:600">Missed</span>');
+    return `<tr class="${done?'done':''}"><td>${i+1}</td><td><strong>${it.n}</strong></td><td>${it.u||''}</td><td>${it.a||''}</td><td>${it.f||''}</td><td>${it.l||''}</td><td>${status}</td></tr>`;
+  }).join('');
+}
+function dsPrevMonth(){ DS_VIEW.m--; if(DS_VIEW.m<0){DS_VIEW.m=11;DS_VIEW.y--;} DS_VIEW.sel=null; dsRender(); }
+function dsNextMonth(){ DS_VIEW.m++; if(DS_VIEW.m>11){DS_VIEW.m=0;DS_VIEW.y++;} DS_VIEW.sel=null; dsRender(); }
+function dsToday(){ const t=new Date(); DS_VIEW.y=t.getFullYear(); DS_VIEW.m=t.getMonth(); DS_VIEW.sel=t.getDate(); dsRender(); }
+
+/* === Pending Daily Schedule === */
+function dpRender(){
+  const team = dsCurrentTeam();
+  const pill = document.getElementById('dp-user-pill');
+  const adminSel = document.getElementById('dp-team-admin');
+  if(adminSel) adminSel.style.display = (AUTH.role==='admin')?'inline-block':'none';
+  if(!team){ pill.textContent='No group assigned'; document.getElementById('dp-body').innerHTML=''; return; }
+  pill.textContent = TEAM_NAME[team] || team;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const y=today.getFullYear(), m=today.getMonth();
+  const wds = dsWorkingDaysOfMonth(y,m);
+  // Determine last WD considered: today's WD, or if past 23-WD window, all 23 WDs
+  const todayWD = dsDateToWD(today);
+  // include all WDs up to and including today (or last available WD if past)
+  let cutoff;
+  if(todayWD) cutoff = todayWD;
+  else {
+    // today is Sunday or beyond 23 WDs → include all WDs <= today date
+    cutoff = wds.filter(d=>d<=today).length;
+  }
+  const rows=[];
+  const doneMap = dsMonthDoneAny(team, y, m, dsFmt(today));
+  for(let wd=1; wd<=cutoff; wd++){
+    const dt = wds[wd-1]; if(!dt) break;
+    const items = dsItemsForTeamWD(team, wd);
+    items.forEach(it=>{
+      if(!doneMap[wd+'|'+it.n]){
+        const overdue = Math.floor((today - dt)/86400000);
+        rows.push({wd, dt, it, overdue});
+      }
+    });
+  }
+  const tbody = document.getElementById('dp-body');
+  const empty = document.getElementById('dp-empty');
+  const wrap = document.getElementById('dp-wrap');
+  if(rows.length===0){ empty.style.display='block'; wrap.style.display='none'; }
+  else { empty.style.display='none'; wrap.style.display='';
+    tbody.innerHTML = rows.map(r=>`<tr>
+      <td><strong>WD${r.wd}</strong></td>
+      <td>${r.dt.toLocaleDateString()}</td>
+      <td><strong>${r.it.n}</strong></td>
+      <td>${r.it.u||''}</td><td>${r.it.a||''}</td><td>${r.it.f||''}</td><td>${r.it.l||''}</td>
+      <td style="color:${r.overdue>0?'var(--red)':'var(--amber)'};font-weight:600">${r.overdue>0?r.overdue+' d':'Today'}</td>
+    </tr>`).join('');
+  }
+  // KPIs
+  const total = rows.length;
+  const todayCnt = rows.filter(r=>r.dt.getTime()===today.getTime()).length;
+  const backlog = total - todayCnt;
+  document.getElementById('dp-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Pending Today</div><div class="kpi-value" style="color:var(--amber)">${todayCnt}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Backlog (this month)</div><div class="kpi-value" style="color:var(--red)">${backlog}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Pending</div><div class="kpi-value">${total}</div></div>
+  `;
+  document.getElementById('dp-meta').textContent = `Group: ${TEAM_NAME[team]||team} · As of ${today.toLocaleDateString()}`;
+  // Save current month's running % for this team
+  dsSavePerfSnapshot(team, y, m);
+}
+
+function dpExport(){
+  const tbody = document.getElementById('dp-body');
+  if(!tbody.rows.length){ alert('Nothing to export.'); return; }
+  const team = dsCurrentTeam();
+  const ws_data = [['WD','Date','Equipment','Unit','Area','Frequency','Loc','Days Overdue']];
+  Array.from(tbody.rows).forEach(tr=>{
+    ws_data.push(Array.from(tr.cells).map(td=>td.innerText));
+  });
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Pending');
+  XLSX.writeFile(wb, `Pending_${team}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* === Monthly performance store === */
+function dsSavePerf(p){}
+function dsSavePerfSnapshot(team, y, m){}
+function dsLoadPerf(){
+  const p = {};
+  const today = new Date();
+  
+  const readingsMap = {};
+  (dsReadingsArr() || []).forEach(r => {
+    if (!r.date || !r.equipment) return;
+    const normEq = normalizeEquipName(r.equipment);
+    const ym = r.date.slice(0, 7);
+    const ds = r.date.slice(0, 10);
+    const key = normEq + '||' + ym;
+    if (!readingsMap[key]) readingsMap[key] = new Set();
+    readingsMap[key].add(ds);
+  });
+
+  function getReadingDaysCountOpt(equipName, y, m, uptoStr) {
+    const ym = `${y}-${String(m+1).padStart(2,'0')}`;
+    const key = normalizeEquipName(equipName) + '||' + ym;
+    const datesSet = readingsMap[key];
+    if (!datesSet) return 0;
+    if (!uptoStr) return datesSet.size;
+    let count = 0;
+    datesSet.forEach(ds => {
+      if (ds <= uptoStr) count++;
+    });
+    return count;
+  }
+
+  function getMonthDoneFast(team, y, m, uptoStr) {
+    const wds = dsWorkingDaysOfMonth(y, m);
+    const occ = {};
+    wds.forEach((dt, i) => {
+      const items = (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(i + 1)]) || [];
+      items.forEach(it => {
+        (occ[it.n] = occ[it.n] || []).push(i + 1);
+      });
+    });
+    const done = {};
+    Object.keys(occ).forEach(eq => {
+      let reads = getReadingDaysCountOpt(eq, y, m, uptoStr);
+      occ[eq].slice().sort((a, b) => a - b).forEach(wd => {
+        if (reads > 0) {
+          done[wd + '|' + eq] = true;
+          reads--;
+        }
+      });
+    });
+    return done;
+  }
+
+  const monthsSet = new Set();
+  (dsReadingsArr() || []).forEach(r => {
+    if (r.date && r.date.length >= 7) {
+      monthsSet.add(r.date.slice(0, 7));
+    }
+  });
+  const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  monthsSet.add(currentYM);
+  
+  const teams = Object.keys(VIBE_SCHEDULE);
+  
+  monthsSet.forEach(ym => {
+    const parts = ym.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    
+    teams.forEach(team => {
+      const wds = dsWorkingDaysOfMonth(y, m);
+      const doneMap = getMonthDoneFast(team, y, m, dsFmt(today));
+      let scheduled = 0, completed = 0;
+      
+      wds.forEach((dt, i) => {
+        if (dt > today) return;
+        const items = (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(i + 1)]) || [];
+        items.forEach(it => {
+          scheduled++;
+          if (doneMap[(i + 1) + '|' + it.n]) completed++;
+        });
+      });
+      
+      const key = `${y}-${parts[1]}_${team}`;
+      p[key] = {
+        team,
+        year: y,
+        month: m + 1,
+        scheduled,
+        completed,
+        pct: scheduled ? Math.round(completed / scheduled * 100) : 0,
+        updated: new Date().toISOString()
+      };
+    });
+  });
+  
+  return p;
+}
+
+function dsRenderPerf(){
+  const team = dsCurrentTeam(); if(!team) return;
+  try { dsRenderTotalAllGroups(); } catch(e){ console.error('dsRenderTotalAllGroups failed:', e); const el=document.getElementById('ds-perf-total'); if(el) el.innerHTML = '<div style="color:var(--red);font-size:12px">Could not load totals — '+(e&&e.message?e.message:'error')+'</div>'; }
+  try { dsRenderCompare(); } catch(e){ console.error('dsRenderCompare failed:', e); }
+  try { dsRenderCompareMonthwise(); } catch(e){ console.error('dsRenderCompareMonthwise failed:', e); }
+}
+
+function dsRenderTotalAllGroups(){
+  const container = document.getElementById('ds-perf-total');
+  if(!container) return;
+  const y = DS_VIEW.y, m = DS_VIEW.m;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const monthStart = new Date(y,m,1); monthStart.setHours(0,0,0,0);
+  const uptoStr = monthStart>today ? dsFmt(monthStart) : dsFmt(today);
+  const teams = Object.keys(VIBE_SCHEDULE);
+  const teamColors = { 'Precise': '#3b82f6', 'CB': '#f59e0b', 'CBA': '#10b981' };
+  let totalSch = 0, totalDone = 0;
+  const stats = teams.map(t=>{
+    const wds = dsWorkingDaysOfMonth(y,m);
+    const dmap = dsMonthDone(t,y,m,uptoStr);
+    let sch=0, done=0;
+    wds.forEach((dt,i)=>{ if(dt>today) return;
+      const items=(VIBE_SCHEDULE[t]&&VIBE_SCHEDULE[t][String(i+1)])||[];
+      items.forEach(it=>{ sch++; if(dmap[(i+1)+'|'+it.n]) done++; });
+    });
+    totalSch+=sch; totalDone+=done;
+    return {team:t, name:TEAM_NAME[t]||t, sch, done, pct: sch?Math.round(done/sch*100):0};
+  });
+  const totalPct = totalSch ? Math.round(totalDone/totalSch*100) : 0;
+  const totalColor = totalPct>=90?'var(--green)':totalPct>=70?'var(--amber)':'var(--red)';
+  const mn = new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+
+  let html = `<div style="background:#EFF6FF;border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+    <span style="font-weight:700;font-size:13px;color:var(--blue-text)">${mn}</span>
+    <span style="font-weight:700;font-size:13px">${totalDone} completed · <span style="color:${totalColor}">${totalPct}%</span></span>
+  </div>`;
+
+  html += stats.map(r=>{
+    const barColor = teamColors[r.team] || (r.pct>=90?'var(--green)':r.pct>=70?'var(--amber)':'var(--red)');
+    const pctColor = r.pct>=90?'var(--green)':r.pct>=70?'var(--amber)':'var(--red)';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="font-weight:600">${r.name}</span>
+        <span style="color:var(--muted)">${r.done} completed · <strong style="color:${pctColor}">${r.pct}%</strong></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${r.pct}%;background:${barColor};border-radius:5px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+function dsRenderCompareMonthwise() {
+  const container = document.getElementById('ds-compare-monthwise');
+  if(!container) return;
+  const isAdmin = (AUTH && AUTH.role==='admin');
+  if(!isAdmin) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  const today = new Date();
+  const monthsSet = new Set();
+  (dsReadingsArr() || []).forEach(r => {
+    if (r.date && r.date.length >= 7) {
+      monthsSet.add(r.date.slice(0, 7));
+    }
+  });
+  const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  monthsSet.add(currentYM);
+  
+  const sortedMonths = Array.from(monthsSet).sort().reverse();
+  const teams = Object.keys(VIBE_SCHEDULE);
+  const teamColors = { 'Precise': '#3b82f6', 'CB': '#f59e0b', 'CBA': '#10b981' };
+  
+  const readingsMap = {};
+  (dsReadingsArr() || []).forEach(r => {
+    if (!r.date || !r.equipment) return;
+    const key = normalizeEquipName(r.equipment) + '||' + r.date.slice(0, 7);
+    if (!readingsMap[key]) readingsMap[key] = new Set();
+    readingsMap[key].add(r.date.slice(0, 10));
+  });
+
+  function getReadingDaysCountOpt(equipName, y, m, uptoStr) {
+    const key = normalizeEquipName(equipName) + '||' + `${y}-${String(m+1).padStart(2,'0')}`;
+    const datesSet = readingsMap[key];
+    if (!datesSet) return 0;
+    if (!uptoStr) return datesSet.size;
+    let count = 0;
+    datesSet.forEach(ds => { if (ds <= uptoStr) count++; });
+    return count;
+  }
+
+  function getMonthDoneFast(team, y, m, uptoStr) {
+    const wds = dsWorkingDaysOfMonth(y, m);
+    const occ = {};
+    wds.forEach((dt, i) => {
+      const items = (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(i + 1)]) || [];
+      items.forEach(it => { (occ[it.n] = occ[it.n] || []).push(i + 1); });
+    });
+    const done = {};
+    Object.keys(occ).forEach(eq => {
+      let reads = getReadingDaysCountOpt(eq, y, m, uptoStr);
+      occ[eq].slice().sort((a, b) => a - b).forEach(wd => {
+        if (reads > 0) { done[wd + '|' + eq] = true; reads--; }
+      });
+    });
+    return done;
+  }
+  
+  let html = '';
+  sortedMonths.forEach(ym => {
+    const parts = ym.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const formattedMonth = new Date(y, m, 1).toLocaleDateString(undefined, {month: 'long', year: 'numeric'});
+    
+    html += `<div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px">
+      <div style="font-weight:700; font-size:12px; margin-bottom:8px; color:var(--text-main)">📅 ${formattedMonth}</div>
+      <div style="display:flex; flex-direction:column; gap:6px">`;
+      
+    teams.forEach(team => {
+      const wds = dsWorkingDaysOfMonth(y, m);
+      const doneMap = getMonthDoneFast(team, y, m, dsFmt(today));
+      let sch = 0, done = 0;
+      
+      wds.forEach((dt, i) => {
+        if (dt > today) return;
+        const items = (VIBE_SCHEDULE[team] && VIBE_SCHEDULE[team][String(i + 1)]) || [];
+        items.forEach(it => {
+          sch++;
+          if (doneMap[(i + 1) + '|' + it.n]) done++;
+        });
+      });
+      
+      const pct = sch ? Math.round(done / sch * 100) : 0;
+      const color = teamColors[team] || '#8b949e';
+      const displayName = TEAM_NAME[team] || team;
+      
+      html += `
+        <div style="display:flex; align-items:center; gap:8px">
+          <span style="width:130px; font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${displayName}">${displayName}</span>
+          <div style="flex:1; height:8px; background:rgba(0,0,0,0.05); border-radius:4px; overflow:hidden">
+            <div style="height:100%; width:${pct}%; background:${color}; border-radius:4px; transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:11px; font-weight:700; width:55px; text-align:right">${done}/${sch} (${pct}%)</span>
+        </div>`;
+    });
+    
+    html += `</div></div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+/* === Admin-only: compare all teams for the viewed month === */
+function dsRenderCompare(){
+  const wrap = document.getElementById('ds-compare');
+  if(!wrap) return;
+  const isAdmin = (AUTH && AUTH.role==='admin');
+  wrap.style.display = isAdmin ? 'block' : 'none';
+  if(!isAdmin) return;
+  const y=DS_VIEW.y, m=DS_VIEW.m;
+  const today=new Date(); today.setHours(0,0,0,0);
+  // Only count days that have actually occurred (so current month is fair)
+  const monthStart=new Date(y,m,1); monthStart.setHours(0,0,0,0);
+  const uptoStr = monthStart>today ? dsFmt(monthStart) : dsFmt(today);
+  const teams = Object.keys(VIBE_SCHEDULE);
+  const stats = teams.map(t=>{
+    const wds=dsWorkingDaysOfMonth(y,m);
+    const dmap=dsMonthDone(t,y,m,uptoStr);
+    let sch=0, done=0;
+    wds.forEach((dt,i)=>{ if(dt>today) return;
+      const items=(VIBE_SCHEDULE[t]&&VIBE_SCHEDULE[t][String(i+1)])||[];
+      items.forEach(it=>{ sch++; if(dmap[(i+1)+'|'+it.n]) done++; });
+    });
+    return {team:t, name:TEAM_NAME[t]||t, sch, done, pct: sch?Math.round(done/sch*100):0};
+  }).sort((a,b)=>b.pct-a.pct);
+  const mn=new Date(y,m,1).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  document.getElementById('ds-compare-sub').textContent =
+    `Completion by team for ${mn} (scheduled vs analysed, any inspector).`;
+  const bars = stats.map((r,idx)=>{
+    const color = r.pct>=90?'var(--green)':r.pct>=70?'var(--amber)':'var(--red)';
+    const medal = idx===0?'🥇 ':idx===1?'🥈 ':idx===2?'🥉 ':'';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="font-weight:600">${medal}${r.name}</span>
+        <span style="color:var(--muted)">${r.done}/${r.sch} · <strong style="color:${color}">${r.pct}%</strong></span>
+      </div>
+      <div style="height:14px;background:var(--bg);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+        <div style="height:100%;width:${r.pct}%;background:${color};border-radius:7px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('ds-compare-bars').innerHTML = stats.some(r=>r.sch>0)
+    ? bars
+    : '<div style="text-align:center;color:var(--muted);padding:10px;font-size:12px">No scheduled work for this month yet.</div>';
+}
+
+// Hook into existing showTab side-effects + auto-refresh after data fetch
+(function(){
+  const _orig = window.applyAuth;
+  if(typeof _orig === 'function'){
+    window.applyAuth = function(){ _orig.apply(this, arguments); try{ dsRender(); }catch(e){} };
+  }
+})();
+</script>
+
 </body>
 </html>
