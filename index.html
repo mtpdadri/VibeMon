@@ -11,25 +11,12 @@
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
 <script>
-/* ===== localStorage DISABLED =====
-   All persistence to browser localStorage has been removed per request.
-   We replace window.localStorage with an in-memory shim so existing calls
-   throughout the app keep working during the session but nothing is ever
-   written to disk. Effect: theme, saved GSheet URL, cached schedule, and
-   saved login are NOT remembered across page reloads.                 */
-(function disableLocalStorage(){
-  var mem = Object.create(null);
-  var shim = {
-    getItem: function(k){ return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
-    setItem: function(k, v){ mem[String(k)] = String(v); },
-    removeItem: function(k){ delete mem[String(k)]; },
-    clear: function(){ mem = Object.create(null); },
-    key: function(i){ return Object.keys(mem)[i] || null; },
-    get length(){ return Object.keys(mem).length; }
-  };
-  try { Object.defineProperty(window, 'localStorage', { configurable: true, get: function(){ return shim; } }); } catch(e){}
-  try { Object.defineProperty(window, 'sessionStorage', { configurable: true, get: function(){ return shim; } }); } catch(e){}
-})();
+/* ===== localStorage ENABLED =====
+   Browser localStorage is used for persisting:
+   - Login session (AUTH_KEY) — so you don't re-login on every open
+   - GSheet URL, theme preference
+   Credentials (username/password) are saved separately under CREDS_KEY
+   and auto-filled / auto-logged-in on app open.                       */
 function toggleTheme() {
   const root = document.documentElement;
   if (root.classList.contains('theme-light')) {
@@ -84,7 +71,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* CARDS */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:12px;overflow:hidden}
-.card-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;background:#fafbfc}
+.card-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;background:var(--bg-card-header,#fafbfc)}
 .card-title{font-size:13px;font-weight:600;color:var(--text)}
 .card-body{padding:12px 14px}
 
@@ -142,7 +129,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* TABLE */
 .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border2);background:#fafbfc;white-space:nowrap}
+thead th{padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border2);background:var(--bg-card-header,#fafbfc);white-space:nowrap}
 tbody td{padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
 tbody tr:hover{background:#f9fafb}
 tbody tr:last-child td{border-bottom:none}
@@ -181,7 +168,7 @@ input.crit{border-color:#991B1B;background:#FFF0F0}
 /* POINT CARDS */
 .pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .pt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
-.pt-card-head{padding:8px 12px;background:#fafbfc;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pt-card-head{padding:8px 12px;background:var(--bg-card-header,#fafbfc);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .pt-card-title{font-size:12px;font-weight:600;color:var(--text)}
 .pt-card-body{padding:8px 12px}
 .param-row{display:grid;grid-template-columns:72px 1fr 46px;align-items:center;gap:4px;margin-bottom:5px}
@@ -299,18 +286,22 @@ body.role-admin div.requires-admin{display:block !important;}
 
 /* ── MOBILE LAYOUT ── */
 @media(max-width:600px){
-  /* Nav: compact top bar + hidden text labels */
-  .nav{flex-direction:row;align-items:center;padding:0 8px;min-height:48px;flex-wrap:nowrap;position:sticky;top:0;z-index:50;gap:6px;overflow:hidden}
-  .nav-brand{font-size:14px;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* Nav: compact top bar — overflow:visible so logout never clips */
+  .nav{flex-direction:row;align-items:center;padding:0 6px;min-height:48px;flex-wrap:nowrap;position:sticky;top:0;z-index:50;gap:4px;overflow:visible}
+  .nav-brand{font-size:13px;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
   .nav-brand span{display:none}
   .nav-tabs{display:none} /* replaced by bottom tab bar */
   .nav-user{display:none}
-  .nav-role-info{gap:4px;font-size:10px;flex-shrink:0;flex-wrap:nowrap;margin-left:auto;max-width:none;overflow:visible}
+  /* role-info sits on the right, never shrinks below its content */
+  .nav-role-info{gap:3px;font-size:10px;flex-shrink:0;flex-wrap:nowrap;margin-left:4px;overflow:visible}
   .nav-role-info #nav-username-label,
   .nav-role-info #nav-role-badge,
   .nav-role-info #nav-display-name{display:none}
-  .nav-role-info .nav-logout-btn{padding:4px 8px;font-size:11px}
-  .nav-role-info .nav-login-btn{padding:4px 10px;font-size:11px}
+  /* Keep Admin/Users btn hidden on very small screens to save space */
+  .nav-role-info #nav-admin-btn{display:none !important}
+  /* Logout always visible and compact */
+  .nav-role-info .nav-logout-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+  .nav-role-info .nav-login-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
 
   /* Bottom tab bar */
   .mobile-bottom-nav{
@@ -429,12 +420,13 @@ html[data-view="mobile"] .nav-brand span{display:none}
 html[data-view="mobile"] .nav-brand{font-size:15px}
 html[data-view="mobile"] .nav-tabs{display:none}
 html[data-view="mobile"] .nav-user{display:none}
-html[data-view="mobile"] .nav-role-info{gap:4px;font-size:10px;flex-shrink:0;flex-wrap:nowrap;margin-left:auto}
+html[data-view="mobile"] .nav-role-info{gap:3px;font-size:10px;flex-shrink:0;flex-wrap:nowrap;margin-left:4px;overflow:visible}
 html[data-view="mobile"] .nav-role-info #nav-username-label,
 html[data-view="mobile"] .nav-role-info #nav-role-badge,
 html[data-view="mobile"] .nav-role-info #nav-display-name{display:none}
-html[data-view="mobile"] .nav-role-info .nav-logout-btn{padding:4px 8px;font-size:11px}
-html[data-view="mobile"] .nav-role-info .nav-login-btn{padding:4px 10px;font-size:11px}
+html[data-view="mobile"] .nav-role-info #nav-admin-btn{display:none !important}
+html[data-view="mobile"] .nav-role-info .nav-logout-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap}
+html[data-view="mobile"] .nav-role-info .nav-login-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap}
 html[data-view="mobile"] .steps{overflow-x:auto;scrollbar-width:none}
 html[data-view="mobile"] .steps::-webkit-scrollbar{display:none}
 html[data-view="mobile"] .step-btn{flex:0 0 auto;min-width:0;width:auto;font-size:11px;padding:9px 12px;white-space:nowrap}
@@ -491,45 +483,54 @@ html[data-view="desktop"] body{min-width:1024px;overflow-x:auto}
 .view-toggle button.active{background:var(--blue);color:#fff}
 @media(max-width:600px){html[data-view="mobile"] .view-toggle{bottom:64px}}
 
-/* ── HIGH CONTRAST THEME SYSTEM ── */
+/* ── THEME SYSTEM ── */
+/* Default dark theme — deep navy/slate, easy on eyes, good contrast */
 :root {
-  --bg-page: #0d1117;
-  --bg-card: #161b22;
-  --bg-card-header: #21262d;
-  --bg-input: #0d1117;
-  --border-color: #30363d;
-  --text-main: #f0f6fc;
-  --text-body: #c9d1d9;
-  --text-muted: #8b949e;
-  --accent-blue: #58a6ff;
-  --accent-green: #3fb950;
-  --accent-red: #f85149;
-  --accent-amber: #d29922;
-  --accent-orange: #f0883e;
-  --shadow: 0 8px 24px rgba(0,0,0,0.5);
-  --btn-bg: #21262d;
-  --btn-border: #30363d;
-  --btn-text: #c9d1d9;
+  --bg-page:        #0f1623;
+  --bg-card:        #1a2235;
+  --bg-card-header: #1e2a40;
+  --bg-input:       #111827;
+  --border-color:   #2d3a52;
+  --text-main:      #e8edf5;
+  --text-body:      #c5cfe0;
+  --text-muted:     #7a8aaa;
+  --accent-blue:    #60a5fa;
+  --accent-green:   #34d399;
+  --accent-red:     #f87171;
+  --accent-amber:   #fbbf24;
+  --accent-orange:  #fb923c;
+  --shadow:         0 4px 20px rgba(0,0,0,0.55);
+  --btn-bg:         #1e2a40;
+  --btn-border:     #2d3a52;
+  --btn-text:       #c5cfe0;
+  /* Severity row tints for dark — subtle, readable */
+  --sev-critical-bg: rgba(239,68,68,0.12);
+  --sev-alert-bg:    rgba(249,115,22,0.10);
+  --sev-alarm-bg:    rgba(251,191,36,0.09);
 }
 
 :root.theme-light {
-  --bg-page: #f6f8fa;
-  --bg-card: #ffffff;
-  --bg-card-header: #f6f8fa;
-  --bg-input: #ffffff;
-  --border-color: #d0d7de;
-  --text-main: #24292f;
-  --text-body: #24292f;
-  --text-muted: #57606a;
-  --accent-blue: #0969da;
-  --accent-green: #1a7f37;
-  --accent-red: #cf222e;
-  --accent-amber: #9a6700;
-  --accent-orange: #bc4c00;
-  --shadow: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
-  --btn-bg: #f6f8fa;
-  --btn-border: #d0d7de;
-  --btn-text: #24292f;
+  --bg-page:        #f0f4f8;
+  --bg-card:        #ffffff;
+  --bg-card-header: #f8fafc;
+  --bg-input:       #ffffff;
+  --border-color:   #d1dae8;
+  --text-main:      #1e293b;
+  --text-body:      #334155;
+  --text-muted:     #64748b;
+  --accent-blue:    #2563eb;
+  --accent-green:   #16a34a;
+  --accent-red:     #dc2626;
+  --accent-amber:   #d97706;
+  --accent-orange:  #ea580c;
+  --shadow:         0 2px 8px rgba(0,0,0,0.08);
+  --btn-bg:         #f8fafc;
+  --btn-border:     #d1dae8;
+  --btn-text:       #334155;
+  /* Severity row tints for light */
+  --sev-critical-bg: #fff0f0;
+  --sev-alert-bg:    #fff4ee;
+  --sev-alarm-bg:    #fffbeb;
 }
 
 /* Page, Tab screens, and modals background */
@@ -598,6 +599,37 @@ select, input[type="date"], input[type="url"], input[type="text"], input[type="p
 .theme-toggle-btn:hover {
   transform: scale(1.1);
 }
+
+/* ── Extra overrides: table rows, pt-card, mobile stack cards ── */
+tbody td, tbody tr {
+  color: var(--text-body) !important;
+  border-color: var(--border-color) !important;
+}
+tbody tr:hover {
+  background: var(--bg-card-header) !important;
+}
+.pt-card, .pt-card-head {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-body) !important;
+}
+.pt-card-head {
+  background: var(--bg-card-header) !important;
+}
+/* Mobile stack table cards */
+.mobile-stack-table tbody tr {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+/* ds-day (daily calendar cells) */
+.ds-day {
+  background: var(--bg-card) !important;
+  color: var(--text-body) !important;
+}
+.ds-day.sunday { background: var(--bg-page) !important; color: var(--text-muted) !important; }
+.ds-cal .dow   { background: var(--bg-card-header) !important; color: var(--text-muted) !important; }
+/* Muted text override for all spans that use it */
+[style*="color:var(--muted)"], .text-muted { color: var(--text-muted) !important; }
 </style>
 <script type="module">
 /* html2app Flutter WebView detection — sets window._h2a_isApp and window._h2a_InAppBrowser.
@@ -705,6 +737,7 @@ select, input[type="date"], input[type="url"], input[type="text"], input[type="p
       <select id="e-unit" onchange="filterEntryList()"><option value="">All units</option></select>
       <select id="e-area" onchange="filterEntryList()"><option value="">All areas</option></select>
       <input type="text" id="e-search" placeholder="Search equipment..." oninput="filterEntryList()" style="flex:2;min-width:160px">
+      <button class="btn btn-sm" style="background:var(--green-light);color:var(--green-text);border-color:var(--green-text);white-space:nowrap" onclick="tabRefresh('entry')" title="Fetch latest data from Google Sheet">🔄 Refresh</button>
     </div>
     <!-- Excel Bulk Upload -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px" id="bulk-action-btns">
@@ -855,6 +888,7 @@ select, input[type="date"], input[type="url"], input[type="text"], input[type="p
       <option value="asc">🔼 Oldest First</option>
     </select>
     <button class="btn btn-primary" onclick="renderHistory()">🔍 Filter</button>
+    <button class="btn" style="background:var(--green-light);color:var(--green-text);border-color:var(--green-text)" onclick="tabRefresh('history')" title="Fetch latest data from Google Sheet">🔄 Refresh</button>
     <button class="btn" onclick="exportHistoryExcel()">📥 Excel</button>
     <button class="btn" onclick="exportHistoryPDF()">📄 PDF Report</button>
     <button class="btn btn-wa requires-editor" onclick="openWASummaryModal('history')">📲 WhatsApp Summary</button>
@@ -917,6 +951,7 @@ select, input[type="date"], input[type="url"], input[type="text"], input[type="p
     <button class="btn btn-sm" onclick="dsNextMonth()">▶</button>
     <button class="btn btn-sm" onclick="dsToday()">Today</button>
     <button class="btn btn-sm" onclick="reloadScheduleNow()" title="Re-fetch VIBE_SCHEDULE from Google Sheet">🔄 Reload Schedule</button>
+    <button class="btn btn-sm" style="background:var(--green-light);color:var(--green-text);border-color:var(--green-text)" onclick="tabRefresh('daily')" title="Fetch latest readings from Google Sheet">🔄 Refresh Data</button>
   </div>
   <div id="vs-diag" style="display:none;margin-bottom:8px;padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;word-break:break-word"></div>
   <div class="card">
@@ -2467,7 +2502,7 @@ function renderHistory() {
     card.style.borderRadius = 'var(--radius-lg)';
 
     card.innerHTML = `
-      <div class="card-head" style="background:#fafbfc">
+      <div class="card-head" style="background:var(--bg-card-header)">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:14px;font-weight:700;cursor:pointer;color:var(--blue)"
             onclick="showEquipTrend('${safeEquip}')">📍 ${session.equipment}</span>
@@ -2511,7 +2546,7 @@ function renderHistory() {
                 return getSev(v, type, r.equipment);
               }).filter(Boolean);
               const ptSev = liveSevs.length ? worstSev(liveSevs) : (r.severity || 'NORMAL');
-              const rowBg = ptSev==='CRITICAL'?'background:#FFF0F0':ptSev==='ALERT'?'background:#FFF4EE':ptSev==='ALARM'?'background:#FFFBEB':'';
+              const rowBg = ptSev==='CRITICAL'?'background:var(--sev-critical-bg,#FFF0F0)':ptSev==='ALERT'?'background:var(--sev-alert-bg,#FFF4EE)':ptSev==='ALARM'?'background:var(--sev-alarm-bg,#FFFBEB)':'';
               const ptEmoji = {NORMAL:'✅',ALARM:'⚠️',ALERT:'🔶',CRITICAL:'🚨'}[ptSev] || '';
               return `<tr style="${rowBg}">
                 <td style="font-weight:600">${ptEmoji} ${r.point}</td>
@@ -2528,7 +2563,7 @@ function renderHistory() {
         </table>
       </div>
       ${allRecs.length ? `
-      <div style="padding:8px 14px;border-top:1px solid var(--border);background:#fafbfc">
+      <div style="padding:8px 14px;border-top:1px solid var(--border);background:var(--bg-card-header,#fafbfc)">
         <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Recommendations</span>
         <div style="margin-top:5px;display:flex;flex-direction:column;gap:3px">
           ${allRecs.map((rec, i) => `<div style="font-size:12px;display:flex;gap:6px"><span style="color:var(--muted);min-width:14px">${i+1}.</span><span>${rec}</span></div>`).join('')}
@@ -2794,8 +2829,8 @@ function showEquipTrend(equip) {
         </div>
         <div style="display:flex;flex-wrap:wrap;align-items:center">${legend}</div>
       </div>
-      <div style="padding:10px 8px 4px;overflow-x:auto;background:#fff">${svg}</div>
-      <div style="padding:7px 14px;border-top:1px solid #f3f4f6;display:flex;gap:12px;font-size:10px;background:#fafbfc;flex-wrap:wrap;align-items:center">
+      <div style="padding:10px 8px 4px;overflow-x:auto;background:var(--bg-card,#fff)">${svg}</div>
+      <div style="padding:7px 14px;border-top:1px solid var(--border-color,#f3f4f6);display:flex;gap:12px;font-size:10px;background:var(--bg-card-header,#fafbfc);flex-wrap:wrap;align-items:center">
         <span style="display:inline-flex;align-items:center;gap:4px;color:#D97706"><span style="width:14px;height:2px;background:#D97706;display:inline-block;border-radius:1px;border-top:1px dashed #D97706"></span> Alarm (${lims.alarm})</span>
         <span style="display:inline-flex;align-items:center;gap:4px;color:#EA580C"><span style="width:14px;height:2px;background:#EA580C;display:inline-block;border-radius:1px"></span> Alert (${lims.alert})</span>
         <span style="display:inline-flex;align-items:center;gap:4px;color:#DC2626"><span style="width:14px;height:2px;background:#DC2626;display:inline-block;border-radius:1px"></span> Critical (${lims.critical})</span>
@@ -3402,7 +3437,8 @@ function copyScript(){
 
 
 // ======= AUTHENTICATION — Google Sheets Only =======
-const AUTH_KEY = 'vibromon_auth_v2'; // Used only to persist login session across browser tab closes
+const AUTH_KEY  = 'vibromon_auth_v2'; // Persists login session across browser opens
+const CREDS_KEY = 'vibromon_creds_v1'; // Persists username+password for auto-login
 let AUTH = { loggedIn: false, username: '', displayName: '', role: 'viewer' };
 
 async function getUsers() {
@@ -3424,8 +3460,14 @@ function saveUsers(users) {
 
 function openLoginScreen() {
   document.getElementById('login-screen').classList.add('open');
-  document.getElementById('login-user').value = '';
-  document.getElementById('login-pass').value = '';
+  // Pre-fill saved credentials if available
+  let savedU = '', savedP = '';
+  try {
+    const c = localStorage.getItem(CREDS_KEY);
+    if (c) { const cj = JSON.parse(c); savedU = cj.u || ''; savedP = cj.p || ''; }
+  } catch(e){}
+  document.getElementById('login-user').value = savedU;
+  document.getElementById('login-pass').value = savedP;
   document.getElementById('login-err').classList.remove('show');
   const errEl = document.getElementById('login-err');
   if (errEl) errEl.textContent = '❌ Invalid username or password.';
@@ -3450,6 +3492,7 @@ async function doLogin() {
   if (uname.toLowerCase() === 'admin' && pass === 'NTPC@1011') {
     AUTH = { loggedIn: true, username: 'Admin', displayName: 'Administrator', role: 'admin' };
     try { localStorage.setItem(AUTH_KEY, JSON.stringify(AUTH)); } catch(e2){}
+    try { localStorage.setItem(CREDS_KEY, JSON.stringify({u: uname, p: pass})); } catch(e3){}
     if (btnEl) { btnEl.textContent = '🔐 Login'; btnEl.disabled = false; }
     applyAuth();
     return;
@@ -3495,6 +3538,7 @@ async function doLogin() {
         role: roleMap[u.role] || 'viewer'
       };
       try { localStorage.setItem(AUTH_KEY, JSON.stringify(AUTH)); } catch(e){}
+      try { localStorage.setItem(CREDS_KEY, JSON.stringify({u: uname, p: pass})); } catch(ec){}
       applyAuth();
     } else {
       errEl.textContent = '❌ ' + (result.msg || 'Invalid username or password.');
@@ -3510,7 +3554,9 @@ async function doLogin() {
 }
 
 function doLogout() {
-  // Logout drops back to viewer mode (no forced login)
+  // Clear saved credentials so next open prompts for login
+  try { localStorage.removeItem(CREDS_KEY); } catch(e){}
+  try { localStorage.removeItem(AUTH_KEY); } catch(e){}
   continueAsViewer();
 }
 
@@ -4419,17 +4465,33 @@ window.onload=()=>{
       if (u && u !== localStorage.getItem(GS_KEY)) localStorage.setItem(GS_KEY, u);
     }
   } catch(e) {}
-  // Try restoring session
+  // Try restoring session from localStorage (persists across file opens)
   const saved = localStorage.getItem(AUTH_KEY);
   let restored = false;
   if (saved) {
     try {
       const a = JSON.parse(saved);
-      if (a && a.loggedIn) { AUTH = a; applyAuth(); restored = true; }
+      if (a && a.loggedIn && a.role !== 'viewer') { AUTH = a; applyAuth(); restored = true; }
     } catch(e) {}
   }
-  // Default: anyone can view without logging in
-  if (!restored) continueAsViewer();
+  // If session not restored, try silent auto-login with saved credentials
+  if (!restored) {
+    (async function tryAutoLogin() {
+      let autoU = '', autoP = '';
+      try {
+        const c = localStorage.getItem(CREDS_KEY);
+        if (c) { const cj = JSON.parse(c); autoU = cj.u || ''; autoP = cj.p || ''; }
+      } catch(e) {}
+      if (autoU && autoP) {
+        // Silently fill the fields and call doLogin (login screen stays hidden)
+        document.getElementById('login-user').value = autoU;
+        document.getElementById('login-pass').value = autoP;
+        await doLogin();
+      } else {
+        continueAsViewer();
+      }
+    })();
+  }
   const today=new Date().toISOString().slice(0,10);
   const month=new Date(new Date().setDate(1)).toISOString().slice(0,10);
   ['h-from'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=month;});
@@ -6268,6 +6330,43 @@ function dsRenderCompare(){
   document.getElementById('ds-compare-bars').innerHTML = stats.some(r=>r.sch>0)
     ? bars
     : '<div style="text-align:center;color:var(--muted);padding:10px;font-size:12px">No scheduled work for this month yet.</div>';
+}
+
+// ======= TAB REFRESH (fetches latest data from GSheet then re-renders active tab) =======
+async function tabRefresh(tab) {
+  // Find the button that triggered this and show spinner feedback
+  const btns = document.querySelectorAll(`#tab-${tab} button`);
+  let refreshBtn = null;
+  btns.forEach(b => { if (b.textContent.includes('Refresh') && !b.textContent.includes('Schedule')) refreshBtn = b; });
+  const origText = refreshBtn ? refreshBtn.textContent : '';
+  if (refreshBtn) { refreshBtn.textContent = '⏳ Fetching...'; refreshBtn.disabled = true; }
+
+  try {
+    // Pull fresh data from Google Sheet
+    const result = await _fetchAllFromGS();
+    if (result && result.success) {
+      await loadSuccessStories && loadSuccessStories();
+      populateFilters && populateFilters();
+      populateUserFilter && populateUserFilter();
+    }
+    // Re-render the active tab
+    if (tab === 'history')  renderHistory  && renderHistory();
+    if (tab === 'entry')    filterEntryList && filterEntryList();
+    if (tab === 'daily')    dsRender        && dsRender();
+    if (tab === 'pending')  dpRender        && dpRender();
+
+    // Brief success flash
+    if (refreshBtn) {
+      refreshBtn.textContent = '✅ Updated!';
+      setTimeout(() => { refreshBtn.textContent = origText; refreshBtn.disabled = false; }, 1800);
+    }
+  } catch(e) {
+    if (refreshBtn) {
+      refreshBtn.textContent = '⚠️ Failed';
+      setTimeout(() => { refreshBtn.textContent = origText; refreshBtn.disabled = false; }, 2000);
+    }
+    console.warn('tabRefresh error:', e);
+  }
 }
 
 // Hook into existing showTab side-effects + auto-refresh after data fetch
