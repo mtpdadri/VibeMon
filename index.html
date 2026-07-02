@@ -299,8 +299,8 @@ body.role-admin div.requires-admin{display:block !important;}
   .nav-role-info #nav-display-name{display:none}
   /* Keep Admin/Users btn hidden on very small screens to save space */
   .nav-role-info #nav-admin-btn{display:none !important}
-  /* Logout always visible and compact */
-  .nav-role-info .nav-logout-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+  /* Logout visible and compact on mobile */
+  .nav-role-info .nav-logout-btn{display:inline-block !important;padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
   .nav-role-info .nav-login-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
 
   /* Bottom tab bar */
@@ -425,7 +425,7 @@ html[data-view="mobile"] .nav-role-info #nav-username-label,
 html[data-view="mobile"] .nav-role-info #nav-role-badge,
 html[data-view="mobile"] .nav-role-info #nav-display-name{display:none}
 html[data-view="mobile"] .nav-role-info #nav-admin-btn{display:none !important}
-html[data-view="mobile"] .nav-role-info .nav-logout-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap}
+html[data-view="mobile"] .nav-role-info .nav-logout-btn{display:inline-block !important;padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap}
 html[data-view="mobile"] .nav-role-info .nav-login-btn{padding:5px 9px;font-size:11px;font-weight:600;white-space:nowrap}
 html[data-view="mobile"] .steps{overflow-x:auto;scrollbar-width:none}
 html[data-view="mobile"] .steps::-webkit-scrollbar{display:none}
@@ -2383,6 +2383,41 @@ function updateHistorySeverity(date, equipment, newSev, sessionKey) {
   }
 }
 
+function updateHistoryDept(date, equipment, newDept, sessionKey) {
+  if (!newDept) return; // no-op on blank
+  const keyToUse = sessionKey || (date + '||' + equipment);
+  // Resolve reportId from sessionKey or first matching row
+  const reportId = (READINGS.find(r => {
+    const rKey = r.reportId ? r.reportId : (r.date + '||' + r.equipment);
+    return rKey === keyToUse;
+  }) || {}).reportId || null;
+  // Update in-memory rows for this session
+  READINGS.forEach(r => {
+    const rKey = r.reportId ? r.reportId : (r.date + '||' + r.equipment);
+    if (rKey === keyToUse) r.responsibleDept = newDept;
+  });
+  saveReadings();
+  // Sync to GSheet (fire-and-forget, no-cors)
+  const gsUrl = getGSUrl();
+  if (gsUrl && reportId) {
+    const rows = READINGS.filter(r => {
+      const rKey = r.reportId ? r.reportId : (r.date + '||' + r.equipment);
+      return rKey === keyToUse;
+    });
+    const payload = {
+      action: 'updateReport',
+      reportId,
+      responsibleDept: newDept,
+      readings: rows.map(r => ({ point: r.point, H_Vel: r.H_Vel, V_Vel: r.V_Vel, A_Vel: r.A_Vel, Acc: r.Acc, H_Dis: r.H_Dis, V_Dis: r.V_Dis, A_Dis: r.A_Dis, severity: r.severity }))
+    };
+    const fd = new FormData(); fd.append('payload', JSON.stringify(payload));
+    fetch(gsUrl, { method: 'POST', body: fd, mode: 'no-cors' }).catch(() => {});
+  }
+  // Update the dept badge in the card without full re-render
+  const deptBadgeEl = document.querySelector(`[data-session-dept="${CSS.escape(keyToUse)}"]`);
+  if (deptBadgeEl) deptBadgeEl.textContent = newDept || '—';
+}
+
 function renderHistory() {
   const from=document.getElementById('h-from').value;
   const to=document.getElementById('h-to').value;
@@ -2501,6 +2536,8 @@ function renderHistory() {
     card.style.borderLeft = `4px solid ${sevBorderColors[os] || '#e2e4e8'}`;
     card.style.borderRadius = 'var(--radius-lg)';
 
+    const sessionDept = (session.rows.find(r=>r.responsibleDept)||{}).responsibleDept || '';
+    const safeDept = sessionDept.replace(/'/g, "\\'");
     card.innerHTML = `
       <div class="card-head" style="background:var(--bg-card-header)">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2527,6 +2564,15 @@ function renderHistory() {
               <option value="CRITICAL" ${os==='CRITICAL'?'selected':''} style="color:#DC2626">🚨 CRITICAL</option>
             </select>`}
           </div>
+          ${AUTH.role !== 'viewer' ? `
+          <div title="Responsible Department" style="display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);padding:3px 7px">
+            <span style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.04em">DEPT</span>
+            <select onchange="updateHistoryDept('${safeDate}','${safeEquip}',this.value,'${sessionKey.replace(/'/g, "\\'")}')"
+              style="font-size:11px;font-weight:700;border:none;background:transparent;color:var(--text);padding:1px 2px;cursor:pointer;max-width:110px">
+              <option value="">— Set —</option>
+              ${(typeof DEPTS_LIST!=='undefined'?DEPTS_LIST:['AHD','CHP','EMD','OFS','BMD','TMD','C&I','TAD']).map(d=>`<option value="${d}" ${sessionDept===d?'selected':''}>${d}</option>`).join('')}
+            </select>
+          </div>` : (sessionDept ? `<div style="display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);padding:3px 7px"><span style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.04em">DEPT</span><span style="font-size:11px;font-weight:700" data-session-dept="${sessionKey}">${sessionDept}</span></div>` : '')}
           ${(AUTH.role==='admin'||(AUTH.role==='editor'&&(session.inspector||'')===AUTH.displayName)) ? `<button class="btn btn-sm" style="color:var(--blue);border-color:var(--blue)" onclick="openEditReport('${safeDate}','${safeEquip}','${safeReportId}')">✏️ Edit</button>` : ''}
           ${AUTH.role==='admin' ? `<button class="btn btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deleteSessionReadings('${safeDate}','${safeEquip}','${safeReportId}')">🗑 Delete</button>` : ''}
           ${AUTH.role!=='viewer' ? `<button class="btn btn-sm btn-wa" onclick="openWASessionModal('${safeDate}','${safeEquip}','${safeReportId}')">📲 WhatsApp</button>` : ''}
